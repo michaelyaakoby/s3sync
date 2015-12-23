@@ -25,69 +25,6 @@
     },
 
     "Resources": {
-        "ZapiClientRole": {
-            "Properties": {
-                "AssumeRolePolicyDocument": {
-                    "Statement": [{
-                        "Action": [ "sts:AssumeRole" ],
-                        "Effect": "Allow",
-                        "Principal": { "Service": [ "lambda.amazonaws.com" ] }
-                    }],
-                    "Version": "2012-10-17"
-                },
-                "Path": "/",
-                "Policies": [{
-                    "PolicyDocument": {
-                        "Statement": [{
-                            "Effect": "Allow",
-                            "Action": [
-                                "logs:CreateLogGroup",
-                                "logs:CreateLogStream",
-                                "logs:PutLogEvents"
-                            ],
-                            "Resource": "arn:aws:logs:*:*:*"
-                        }]
-                    },
-                    "PolicyName": {
-                        "Fn::Join": [ "_", [ "NFStoS3", { "Ref": "AWS::StackName" }]]
-                    }
-                }]
-            },
-            "Type": "AWS::IAM::Role"
-        },
-
-        "ZapiClient": {
-            "Type": "AWS::Lambda::Function",
-            "Properties": {
-                "Handler": "index.handler",
-                "Role": { "Fn::GetAtt" : ["ZapiClientRole", "Arn"] },
-                "Code": { "ZipFile" : { "Fn::Join": ["\n", [
-                    "var http = require('http');",
-                    "exports.handler = function (event, context) {",
-                    "    var options = {",
-                    "        host: event.ip,",
-                    "        path: '/servlets/netapp.servlets.admin.XMLrequest_filer',",
-                    "        auth: event.auth,",
-                    "        method: 'POST'",
-                    "    };",
-                    "    var req = http.request(options, function (response) {",
-                    "        var str = '';",
-                    "        response.on('data', function (chunk) {",
-                    "            str += chunk;",
-                    "        });",
-                    "        response.on('end', function () {",
-                    "            context.done(str);",
-                    "        });",
-                    "    });",
-                    "    req.write(event.zapiRequestXml);",
-                    "    req.end();",
-                    "};"
-                ]]}},
-                "Runtime": "nodejs",
-                "Timeout": "25"
-            }
-        },
-
         "AgentIamRole": {
             "Properties": {
                 "AssumeRolePolicyDocument": {
@@ -181,7 +118,7 @@
                             ]
                         },
                         "PolicyName": {
-                            "Fn::Join": [ "_", [ "NFStoS3", { "Ref": "AWS::StackName" }]]
+                            "Fn::Join": [ "_", [ "s3sync", { "Ref": "AWS::StackName" }]]
                         }
                     }]
             },
@@ -196,10 +133,10 @@
             "Type": "AWS::IAM::InstanceProfile"
         },
 
-        "NFStoS3SecurityGroup": {
+        "AgentSecurityGroup": {
             "Type": "AWS::EC2::SecurityGroup",
             "Properties": {
-                "GroupDescription": "Security group for the NFStoS3 agent",
+                "GroupDescription": "Security group for the s3sync agent",
                 "VpcId": {
                     "Ref": "VpcId"
                 },
@@ -209,15 +146,15 @@
                 "Tags": [
                     {
                         "Key": "Name",
-                        "Value": {"Fn::Join": [ "_", [ "NFStoS3",{ "Ref": "AWS::StackName" }, "SG" ] ]}
+                        "Value": {"Fn::Join": [ "_", [ "s3sync",{ "Ref": "AWS::StackName" } ] ]}
                     }
                 ]
             }
         },
 
-        "NFStoS3Instance": {
+        "AgentInstance": {
             "DependsOn": [
-                "NFStoS3SecurityGroup", "AgentInstanceProfile"
+                "AgentSecurityGroup", "AgentInstanceProfile"
             ],
             "Type": "AWS::EC2::Instance",
             "CreationPolicy": {
@@ -236,7 +173,7 @@
                         "AssociatePublicIpAddress": "True",
                         "DeleteOnTermination": "True",
                         "SubnetId": { "Ref": "SubnetId" }, "DeviceIndex": "0",
-                        "GroupSet": [ { "Ref": "NFStoS3SecurityGroup" } ] }
+                        "GroupSet": [ { "Ref": "AgentSecurityGroup" } ] }
                 ],
                 "InstanceType": "t2.medium",
                 "IamInstanceProfile": { "Ref": "AgentInstanceProfile" },
@@ -253,7 +190,6 @@
                                 {"Fn::Join": [ "", [ "callbackTopic=", { "Fn::Select" : [ "0", { "Ref" : "AWS::NotificationARNs" } ] } ] ]},
                                 {"Fn::Join": [ "", [ "vpcId=", { "Ref": "VpcId" } ] ]},
                                 {"Fn::Join": [ "", [ "subnetId=", { "Ref": "SubnetId" } ] ]},
-                                {"Fn::Join": [ "", [ "zapiClientArn=", { "Fn::GetAtt" : ["ZapiClient", "Arn"] } ] ]},
 								"instanceId=`curl http://169.254.169.254/latest/meta-data/instance-id`",
                                 "curl -L https://github.com/s3tools/s3cmd/releases/download/v1.6.0/s3cmd-1.6.0.tar.gz -o s3cmd-1.6.0.tar.gz",
                                 "tar xvzf s3cmd-1.6.0.tar.gz",
@@ -271,8 +207,8 @@
                                 "yum -y install git",
                                 "git clone https://github.com/michaelyaakoby/s3sync /opt/netapp/s3sync",
                                 "chmod +x /opt/netapp/s3sync/agent/scripts/*",
-                                "aws cloudformation signal-resource --stack-name $name --region $region --logical-resource-id NFStoS3Instance --status SUCCESS --unique-id $instanceId",
-                                "aws sns publish --region $region --topic-arn arn:aws:sns:us-west-2:464262061435:copy1 --message '{\"instance-id\": \"'${instanceId}'\", \"deploy-agent\": { \"vpc-id\": \"'${vpcId}'\", \"subnet-id\": \"'${subnetId}'\", \"zapi-client-arn\": \"'${zapiClientArn}'\" }, \"status\": \"success\"}'"
+                                "aws cloudformation signal-resource --stack-name $name --region $region --logical-resource-id AgentInstance --status SUCCESS --unique-id $instanceId",
+                                "aws sns publish --region $region --topic-arn arn:aws:sns:us-west-2:464262061435:copy1 --message '{\"instance-id\": \"'${instanceId}'\", \"deploy-agent\": { \"vpc-id\": \"'${vpcId}'\", \"subnet-id\": \"'${subnetId}'\" }, \"status\": \"success\"}'"
                             ]
                         ]
                     }
@@ -280,7 +216,7 @@
                 "Tags": [
                     {
                         "Key": "Name",
-                        "Value": {"Fn::Join": [ "_", [ "NFStoS3", { "Ref": "AWS::StackName" }, "Agent" ] ]}
+                        "Value": {"Fn::Join": [ "_", [ "s3sync", { "Ref": "AWS::StackName" } ] ]}
                     }
                 ]
             }
@@ -291,15 +227,11 @@
     "Outputs": {
         "InstanceId": {
             "Description": "InstanceId of the newly created EC2 NFS-to-S3 agent",
-            "Value": { "Ref": "NFStoS3Instance" }
+            "Value": { "Ref": "AgentInstance" }
         },
         "InstanceProfile": {
             "Description": "Instance profle used by the NFS-to-S3 agent",
             "Value": { "Ref": "AgentInstanceProfile" }
-        },
-        "ZapiClient": {
-            "Description": "ZAPI client Lambda function",
-            "Value": { "Ref": "ZapiClient" }
         }
     }
 }
