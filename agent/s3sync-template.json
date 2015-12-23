@@ -163,7 +163,7 @@
                     "Timeout": "PT15M"
                 }
             },
-           "Properties": {
+            "Properties": {
                 "DisableApiTermination": "FALSE",
                 "ImageId": {
                     "Fn::FindInMap": [ "RegionMap", { "Ref": "AWS::Region" }, "ami" ]
@@ -202,13 +202,13 @@
                                 "mkdir /tmp/ssm",
                                 "curl https://amazon-ssm-us-west-2.s3.amazonaws.com/latest/linux_amd64/amazon-ssm-agent.rpm -o /tmp/ssm/amazon-ssm-agent.rpm",
                                 "yum install -y /tmp/ssm/amazon-ssm-agent.rpm",
-                                "systemctl status amazon-ssm-agent",
+                                "systemctl enable amazon-ssm-agent",
                                 "systemctl start amazon-ssm-agent",
                                 "yum -y install git",
                                 "git clone https://github.com/michaelyaakoby/s3sync /opt/netapp/s3sync",
                                 "chmod +x /opt/netapp/s3sync/agent/scripts/*",
                                 "aws cloudformation signal-resource --stack-name $name --region $region --logical-resource-id AgentInstance --status SUCCESS --unique-id $instanceId",
-                                "aws sns publish --region $region --topic-arn arn:aws:sns:us-west-2:464262061435:copy1 --message '{\"instance-id\": \"'${instanceId}'\", \"deploy-agent\": { \"vpc-id\": \"'${vpcId}'\", \"subnet-id\": \"'${subnetId}'\" }, \"status\": \"success\"}'"
+                                "aws sns publish --region $region --topic-arn $callbackTopic --subject 'deploy-agent-completed' --message '{\"instance-id\": \"'${instanceId}'\", \"deploy-agent\": { \"vpc-id\": \"'${vpcId}'\", \"subnet-id\": \"'${subnetId}'\" }, \"status\": \"success\"}'"
                             ]
                         ]
                     }
