@@ -1,0 +1,305 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "Launch fast-copying NFS-to-S3 synchronization agent",
+
+    "Parameters": {
+        "VpcId": {
+            "Type": "AWS::EC2::VPC::Id",
+            "Description": "Target VPC where the NFS-to-S3 agent be installed"
+        },
+        "SubnetId": {
+            "Type": "AWS::EC2::Subnet::Id",
+            "Description": "Subnet to which the agent be connected"
+        },
+        "KeyPair": {
+            "Type": "AWS::EC2::KeyPair::KeyName",
+            "Description": "Name of an existing EC2 KeyPair within the AWS account; You should login to the NFS-to-S3 agent as 'ec2-admin' using these keys."
+        },
+        "CallbackSnsTopicArn": {
+            "Type": "String",
+            "Description": "SNS Topic ARN to which to which completion message will be sent."
+        }
+    },
+
+    "Mappings": {
+        "RegionMap": {
+            "us-west-2": {"ami": "ami-775e4f16"},
+            "us-east-1": {"ami": "ami-2051294a"}
+        }
+    },
+
+    "Resources": {
+        "ZapiClientRole": {
+            "Properties": {
+                "AssumeRolePolicyDocument": {
+                    "Statement": [{
+                        "Action": [ "sts:AssumeRole" ],
+                        "Effect": "Allow",
+                        "Principal": { "Service": [ "lambda.amazonaws.com" ] }
+                    }],
+                    "Version": "2012-10-17"
+                },
+                "Path": "/",
+                "Policies": [{
+                    "PolicyDocument": {
+                        "Statement": [{
+                            "Effect": "Allow",
+                            "Action": [
+                                "logs:CreateLogGroup",
+                                "logs:CreateLogStream",
+                                "logs:PutLogEvents"
+                            ],
+                            "Resource": "arn:aws:logs:*:*:*"
+                        }]
+                    },
+                    "PolicyName": {
+                        "Fn::Join": [ "_", [ "NFStoS3", { "Ref": "AWS::StackName" }]]
+                    }
+                }]
+            },
+            "Type": "AWS::IAM::Role"
+        },
+
+        "ZapiClient": {
+            "Type": "AWS::Lambda::Function",
+            "Properties": {
+                "Handler": "index.handler",
+                "Role": { "Fn::GetAtt" : ["ZapiClientRole", "Arn"] },
+                "Code": { "ZipFile" : { "Fn::Join": ["\n", [
+                    "var http = require('http');",
+                    "exports.handler = function (event, context) {",
+                    "    var options = {",
+                    "        host: event.ip,",
+                    "        path: '/servlets/netapp.servlets.admin.XMLrequest_filer',",
+                    "        auth: event.auth,",
+                    "        method: 'POST'",
+                    "    };",
+                    "    var req = http.request(options, function (response) {",
+                    "        var str = '';",
+                    "        response.on('data', function (chunk) {",
+                    "            str += chunk;",
+                    "        });",
+                    "        response.on('end', function () {",
+                    "            context.done(str);",
+                    "        });",
+                    "    });",
+                    "    req.write(event.zapiRequestXml);",
+                    "    req.end();",
+                    "};"
+                ]]}},
+                "Runtime": "nodejs",
+                "Timeout": "25"
+            }
+        },
+
+        "AgentIamRole": {
+            "Properties": {
+                "AssumeRolePolicyDocument": {
+                    "Statement": [{
+                        "Action": [ "sts:AssumeRole" ],
+                        "Effect": "Allow",
+                        "Principal": { "Service": [ "ec2.amazonaws.com" ] }
+                    }],
+                    "Version": "2012-10-17"
+                },
+                "Path": "/",
+                "Policies": [
+                    {
+                        "PolicyDocument": {
+                            "Statement": [
+                                {
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "ssm:DescribeAssociation",
+                                        "ssm:GetDocument",
+                                        "ssm:ListAssociations",
+                                        "ssm:UpdateAssociationStatus",
+                                        "ssm:UpdateInstanceInformation"
+                                    ],
+                                    "Resource": "*"
+                                },
+                                {
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "ec2messages:AcknowledgeMessage",
+                                        "ec2messages:DeleteMessage",
+                                        "ec2messages:FailMessage",
+                                        "ec2messages:GetEndpoint",
+                                        "ec2messages:GetMessages",
+                                        "ec2messages:SendReply"
+                                    ],
+                                    "Resource": "*"
+                                },
+                                {
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "cloudwatch:PutMetricData"
+                                    ],
+                                    "Resource": "*"
+                                },
+                                {
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "ec2:DescribeInstanceStatus",
+                                        "cloudformation:SignalResource"
+                                    ],
+                                    "Resource": "*"
+                                },
+                                {
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "ds:CreateComputer",
+                                        "ds:DescribeDirectories"
+                                    ],
+                                    "Resource": "*"
+                                },
+                                {
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "logs:CreateLogGroup",
+                                        "logs:CreateLogStream",
+                                        "logs:DescribeLogGroups",
+                                        "logs:DescribeLogStreams",
+                                        "logs:PutLogEvents"
+                                    ],
+                                    "Resource": "*"
+                                },
+                                {
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "s3:PutObject",
+                                        "s3:GetObject",
+                                        "s3:AbortMultipartUpload",
+                                        "s3:ListMultipartUploadParts",
+                                        "s3:ListBucketMultipartUploads"
+                                    ],
+                                    "Resource": "*"
+                                },
+                                {
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "SNS:Publish"
+                                    ],
+                                    "Resource": { "Ref": "CallbackSnsTopicArn" }
+                                }
+                            ]
+                        },
+                        "PolicyName": {
+                            "Fn::Join": [ "_", [ "NFStoS3", { "Ref": "AWS::StackName" }]]
+                        }
+                    }]
+            },
+            "Type": "AWS::IAM::Role"
+        },
+
+        "AgentInstanceProfile": {
+            "Properties": {
+                "Path": "/",
+                "Roles": [{ "Ref": "AgentIamRole" } ]
+            },
+            "Type": "AWS::IAM::InstanceProfile"
+        },
+
+        "NFStoS3SecurityGroup": {
+            "Type": "AWS::EC2::SecurityGroup",
+            "Properties": {
+                "GroupDescription": "Security group for the NFStoS3 agent",
+                "VpcId": {
+                    "Ref": "VpcId"
+                },
+                "SecurityGroupIngress": [
+                    { "IpProtocol": "tcp", "FromPort": "22", "ToPort": "22", "CidrIp": "0.0.0.0/0" }
+                ],
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": {"Fn::Join": [ "_", [ "NFStoS3",{ "Ref": "AWS::StackName" }, "SG" ] ]}
+                    }
+                ]
+            }
+        },
+
+        "NFStoS3Instance": {
+            "DependsOn": [
+                "NFStoS3SecurityGroup", "AgentInstanceProfile"
+            ],
+            "Type": "AWS::EC2::Instance",
+            "CreationPolicy": {
+                "ResourceSignal": {
+                    "Count": "1",
+                    "Timeout": "PT15M"
+                }
+            },
+           "Properties": {
+                "DisableApiTermination": "FALSE",
+                "ImageId": {
+                    "Fn::FindInMap": [ "RegionMap", { "Ref": "AWS::Region" }, "ami" ]
+                },
+                "NetworkInterfaces": [
+                    {
+                        "AssociatePublicIpAddress": "True",
+                        "DeleteOnTermination": "True",
+                        "SubnetId": { "Ref": "SubnetId" }, "DeviceIndex": "0",
+                        "GroupSet": [ { "Ref": "NFStoS3SecurityGroup" } ] }
+                ],
+                "InstanceType": "t2.medium",
+                "IamInstanceProfile": { "Ref": "AgentInstanceProfile" },
+                "KeyName": { "Ref": "KeyPair" },
+                "Monitoring": "false",
+                "UserData": {
+                    "Fn::Base64": {
+                        "Fn::Join": [
+                            "\n",
+                            [
+                                "#!/bin/bash -xe",
+                                {"Fn::Join": [ "", [ "name=", { "Ref": "AWS::StackName" } ] ]},
+                                {"Fn::Join": [ "", [ "region=", { "Ref": "AWS::Region" } ] ]},
+                                {"Fn::Join": [ "", [ "callbackTopic=", { "Ref": "CallbackSnsTopicArn" } ] ]},
+                                {"Fn::Join": [ "", [ "vpcId=", { "Ref": "VpcId" } ] ]},
+                                {"Fn::Join": [ "", [ "subnetId=", { "Ref": "SubnetId" } ] ]},
+                                {"Fn::Join": [ "", [ "zapiClientArn=", { "Fn::GetAtt" : ["ZapiClient", "Arn"] } ] ]},
+								"instanceId=`curl http://169.254.169.254/latest/meta-data/instance-id`",
+                                "curl -L https://github.com/s3tools/s3cmd/releases/download/v1.6.0/s3cmd-1.6.0.tar.gz -o s3cmd-1.6.0.tar.gz",
+                                "tar xvzf s3cmd-1.6.0.tar.gz",
+                                "ln -s `pwd`/s3cmd-1.6.0/s3cmd /usr/bin/s3cmd",
+                                "yum -y install nfs-utils",
+                                "curl 'https://s3.amazonaws.com/aws-cli/awscli-bundle.zip' -o 'awscli-bundle.zip'",
+                                "yum -y install unzip",
+                                "unzip awscli-bundle.zip",
+                                "./awscli-bundle/install -i /usr/local/aws -b /bin/aws",                                
+                                "mkdir /tmp/ssm",
+                                "curl https://amazon-ssm-us-west-2.s3.amazonaws.com/latest/linux_amd64/amazon-ssm-agent.rpm -o /tmp/ssm/amazon-ssm-agent.rpm",
+                                "yum install -y /tmp/ssm/amazon-ssm-agent.rpm",
+                                "systemctl start amazon-ssm-agent",
+                                "aws cloudformation signal-resource --stack-name $name --region $region --logical-resource-id NFStoS3Instance --status SUCCESS --unique-id $instanceId",
+                                "aws sns publish --region $region --topic-arn arn:aws:sns:us-west-2:464262061435:copy1 --message '{\"instance-id\": \"'${instanceId}'\", \"deploy-agent\": { \"vpc-id\": \"'${vpcId}'\", \"subnet-id\": \"'${subnetId}'\", \"zapi-client-arn\": \"'${zapiClientArn}'\" }, \"status\": \"success\"}'"
+                            ]
+                        ]
+                    }
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": {"Fn::Join": [ "_", [ "NFStoS3", { "Ref": "AWS::StackName" }, "Agent" ] ]}
+                    }
+                ]
+            }
+        }
+    },
+
+   
+    "Outputs": {
+        "InstanceId": {
+            "Description": "InstanceId of the newly created EC2 NFS-to-S3 agent",
+            "Value": { "Ref": "NFStoS3Instance" }
+        },
+        "InstanceProfile": {
+            "Description": "Instance profle used by the NFS-to-S3 agent",
+            "Value": { "Ref": "AgentInstanceProfile" }
+        },
+        "ZapiClient": {
+            "Description": "ZAPI client Lambda function",
+            "Value": { "Ref": "ZapiClient" }
+        }
+    }
+}

@@ -1,0 +1,83 @@
+Using s3utils
+=============
+The hard way
+------------
+http://s3tools.org/repositories
+
+yum -y install lrzsz
+yum -y install unzip
+yum -y install nfs-utils
+
+rz //to transfer s3cmd filr
+unzip s3cmd-master.zip 
+
+mount 10.60.18.45:/data /data -o nolock
+
+cd s3cmd-master
+./s3cmd --configure
+./s3cmd sync /data s3://ontap-sync/data/
+
+Automated
+---------
+curl -L https://github.com/s3tools/s3cmd/releases/download/v1.6.0/s3cmd-1.6.0.tar.gz -o s3cmd-1.6.0.tar.gz
+tar xvzf s3cmd-1.6.0.tar.gz
+ln -s `pwd`/s3cmd-1.6.0/s3cmd /usr/bin/s3cmd
+
+yum -y install nfs-utils
+
+mount 10.60.18.45:/data /data -o nolock
+s3cmd --access_key=AKIAJXUNTVUCJ46FQBRQ --secret_key=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 --region=us-west-2 sync /data s3://ontap-sync/data/
+umount /data
+
+
+Using SSM
+==========
+Installing (RHEL us-west-2)
+---------------------------
+mkdir /tmp/ssm
+curl https://amazon-ssm-us-west-2.s3.amazonaws.com/latest/linux_amd64/amazon-ssm-agent.rpm -o /tmp/ssm/amazon-ssm-agent.rpm
+yum install -y /tmp/ssm/amazon-ssm-agent.rpm
+systemctl start amazon-ssm-agent
+
+
+Using S3FS (bad idea...)
+========================
+
+Install FUSE
+----------
+yum install -y gcc libstdc++-devel gcc-c++ curl-devel libxml2-devel openssl-devel mailcap
+yum install -y fuse-libs
+cd /usr/src/
+wget http://downloads.sourceforge.net/project/fuse/fuse-2.X/2.9.3/fuse-2.9.3.tar.gz
+tar xzf fuse-2.9.3.tar.gz
+cd fuse-2.9.3
+./configure --prefix=/usr/local
+make && make install
+export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig
+Ldconfig
+modprobe fuse
+ 
+Install S3FS
+----------
+cd /usr/src/
+wget https://s3fs.googlecode.com/files/s3fs-1.74.tar.gz
+tar xzf s3fs-1.74.tar.gz
+cd s3fs-1.74
+./configure --prefix=/usr/local
+make && make install
+echo AKIAJXUNTVUCJ46FQBRQ:kp/F22zkZtxyCmbcU0TUb/3pItJJtJLSmiKHEjrU > ~/.passwd-s3fs
+chmod 600 ~/.passwd-s3fs
+
+Mount S3
+----------
+mkdir /tmp/cache
+mkdir /s3mnt
+chmod 777 /tmp/cache /s3mnt
+s3fs -o use_cache=/tmp/cache ontap-sync /s3mnt
+
+Bla Bla Bla
+============
+easy_install + aws-cfn
+----------------------
+curl https://bootstrap.pypa.io/ez_setup.py | python
+easy_install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz
