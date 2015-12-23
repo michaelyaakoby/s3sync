@@ -31,40 +31,71 @@ for opt, arg in opts:
 if address is None or username is None or password is None:
   usage()
 
-volumesResponse = requests.post('http://' + address + '/servlets/netapp.servlets.admin.XMLrequest_filer', auth=(username, password), data='<netapp  xmlns="http://www.netapp.com/filer/admin" version="1.20"> <volume-get-iter> <desired-attributes> <volume-attributes> <volume-id-attributes> <name/> <owning-vserver-name/> <containing-aggregate-name/> <junction-path/> </volume-id-attributes> <volume-space-attributes> <size/> <size-used/> </volume-space-attributes><volume-state-attributes> <is-vserver-root/> <state/> </volume-state-attributes> <volume-clone-attributes> <volume-clone-parent-attributes> <name/> </volume-clone-parent-attributes> </volume-clone-attributes> <volume-export-attributes> <policy/> </volume-export-attributes> </volume-attributes> </desired-attributes> </volume-get-iter> </netapp>') 
-volumesXml = ET.fromstring(volumesResponse.text)
-
 ns = {'na': 'http://www.netapp.com/filer/admin'}
 
-def findNaElement(node, group, element): 
-  elem = node.find('na:'+group+'/na:'+element, ns)
+def findNaElement(node, *elements): 
+  xpath = '/'.join(["na:" + x for x in elements])
+  elem = node.find(xpath, ns)
   if elem == None:
     return None
   else:
     return elem.text
 
-def xmlToVolume(vol): 
+def zapiPost(xmlRequest):  
+  httpResponse = requests.post('http://' + address + '/servlets/netapp.servlets.admin.XMLrequest_filer', auth=(username, password), data=xmlRequest) 
+  if httpResponse.status_code != 200:
+    raise IOError("Request failed " + str(httpResponse.status_code) + ": " + httpResponse.text)
+  xmlResponse = ET.fromstring(httpResponse.text)
+  if xmlResponse.find('na:results', ns).attrib['status'] == "failed":
+    raise IOError("Request failed: " + xmlResponse.find('na:results', ns).attrib['reason'])
+  return xmlResponse
+
+def xmlToVolume(xmlVol): 
   return {
-    'name':                      findNaElement(vol, 'volume-id-attributes', 'name'),
-	'svm':                       findNaElement(vol, 'volume-id-attributes', 'owning-vserver-name'),
-	'junction-path':             findNaElement(vol, 'volume-id-attributes', 'junction-path'),
-    'aggregate':                 findNaElement(vol, 'volume-id-attributes', 'containing-aggregate-name'),
-    'size-bytes':                findNaElement(vol, 'volume-space-attributes', 'size'),
-    'size-used-bytes':           findNaElement(vol, 'volume-space-attributes', 'size-used'),
-    'state':                     findNaElement(vol, 'volume-state-attributes', 'state'),
-    'is-vserver-root':           findNaElement(vol, 'volume-state-attributes', 'is-vserver-root'),
-    'export-policy':             findNaElement(vol, 'volume-export-attributes', 'policy'),
-    'parent-volume':             findNaElement(vol, 'volume-clone-attributes/na:volume-clone-parent-attributes', 'name')
+    'name':                      findNaElement(xmlVol, 'volume-id-attributes', 'name'),
+	'svm':                       findNaElement(xmlVol, 'volume-id-attributes', 'owning-vserver-name'),
+	'junction-path':             findNaElement(xmlVol, 'volume-id-attributes', 'junction-path'),
+    'aggregate':                 findNaElement(xmlVol, 'volume-id-attributes', 'containing-aggregate-name'),
+    'size-bytes':                findNaElement(xmlVol, 'volume-space-attributes', 'size'),
+    'size-used-bytes':           findNaElement(xmlVol, 'volume-space-attributes', 'size-used'),
+    'state':                     findNaElement(xmlVol, 'volume-state-attributes', 'state'),
+    'is-vserver-root':           findNaElement(xmlVol, 'volume-state-attributes', 'is-vserver-root'),
+    'export-policy':             findNaElement(xmlVol, 'volume-export-attributes', 'policy'),
+    'parent-volume':             findNaElement(xmlVol, 'volume-clone-attributes', 'volume-clone-parent-attributes', 'name')
     }
 
+volumesXml = zapiPost('<netapp  xmlns="http://www.netapp.com/filer/admin" version="1.20"> <volume-get-iter> <desired-attributes> <volume-attributes> <volume-id-attributes> <name/> <owning-vserver-name/> <containing-aggregate-name/> <junction-path/> </volume-id-attributes> <volume-space-attributes> <size/> <size-used/> </volume-space-attributes><volume-state-attributes> <is-vserver-root/> <state/> </volume-state-attributes> <volume-clone-attributes> <volume-clone-parent-attributes> <name/> </volume-clone-parent-attributes> </volume-clone-attributes> <volume-export-attributes> <policy/> </volume-export-attributes> </volume-attributes> </desired-attributes> </volume-get-iter> </netapp>')
 volumes = map(xmlToVolume, volumesXml.findall('na:results/na:attributes-list/na:volume-attributes', ns))
-
+print '------- Volumes ---------'
 print volumes
+
+def xmlToLif(xmlLif):
+  return {
+    'name':      findNaElement(xmlLif, 'interface-name'),
+    'address':   findNaElement(xmlLif, 'address'),
+    'status':    findNaElement(xmlLif, 'operational-status'),
+    'protocols': findNaElement(xmlLif, 'data-protocols', 'data-protocol'),
+    'svm':       findNaElement(xmlLif, 'vserver'),
+    'role':      findNaElement(xmlLif, 'role')
+  }
+
+lifsXml = zapiPost('<netapp xmlns="http://www.netapp.com/filer/admin" version="1.20"><net-interface-get-iter><desired-attributes><net-interface-info><address/><data-protocols><data-protocol/></data-protocols><interface-name/><operational-status/><vserver/><role/></net-interface-info></desired-attributes></net-interface-get-iter></netapp>')
+lifs = map(xmlToLif, lifsXml.findall('na:results/na:attributes-list/na:net-interface-info', ns))
+print '------- LIFs ---------'
+print lifs
+
+nfsDataLifs = filter(lambda lif: lif['role'] == 'data' and 'nfs' in lif['protocols'], lifs)
+svmToNfsLifAddress = dict([(x['svm'], x['address']) for x in nfsDataLifs])
+nfsVolumes = filter(lambda vol: vol['svm'] in svmToNfsLifAddress, volumes)
+exports = map(lambda vol: dict(vol, **{'data-lif-address': svmToNfsLifAddress[vol['svm']]}), nfsVolumes)
+
+print '------- Exports ---------'
+print exports
 
 if snsTopic is not None:
   instanceId = requests.get("http://169.254.169.254/latest/meta-data/instance-id").text
   region = requests.get("http://169.254.169.254/latest/meta-data/placement/availability-zone").text[:-1]
   nicMac = requests.get("http://169.254.169.254/latest/meta-data/network/interfaces/macs").text
   subnet = requests.get("http://169.254.169.254/latest/meta-data/network/interfaces/macs/" + nicMac + "/subnet-id").text
-  jsonVolumes = json.dumps(volumes)
-  os.system("aws sns publish --region " + region + " --topic-arn " + snsTopic + " --subject find-exports --message '{\"instance-id\": \"" + instanceId + "\", \"find-exports\": { \"cluster-mgmt-ip\": \"" + address + "\", \"subnet-id\": \"" + subnet +"\", \"exports\": " + jsonVolumes + " }'")
+  jsonExports = json.dumps(exports)
+  os.system("aws sns publish --region " + region + " --topic-arn " + snsTopic + " --subject find-exports --message '{\"instance-id\": \"" + instanceId + "\", \"find-exports\": { \"cluster-mgmt-ip\": \"" + address + "\", \"subnet-id\": \"" + subnet +"\", \"exports\": " + jsonExports + " }'")
