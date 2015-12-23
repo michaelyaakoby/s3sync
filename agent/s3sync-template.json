@@ -14,10 +14,6 @@
         "KeyPair": {
             "Type": "AWS::EC2::KeyPair::KeyName",
             "Description": "Name of an existing EC2 KeyPair within the AWS account; You should login to the NFS-to-S3 agent as 'ec2-admin' using these keys."
-        },
-        "CallbackSnsTopicArn": {
-            "Type": "String",
-            "Description": "SNS Topic ARN to which to which completion message will be sent."
         }
     },
 
@@ -180,7 +176,7 @@
                                     "Action": [
                                         "SNS:Publish"
                                     ],
-                                    "Resource": { "Ref": "CallbackSnsTopicArn" }
+                                    "Resource": { "Fn::Select" : [ "0", { "Ref" : "AWS::NotificationARNs" } ] }
                                 }
                             ]
                         },
@@ -254,7 +250,7 @@
                                 "#!/bin/bash -xe",
                                 {"Fn::Join": [ "", [ "name=", { "Ref": "AWS::StackName" } ] ]},
                                 {"Fn::Join": [ "", [ "region=", { "Ref": "AWS::Region" } ] ]},
-                                {"Fn::Join": [ "", [ "callbackTopic=", { "Ref": "CallbackSnsTopicArn" } ] ]},
+                                {"Fn::Join": [ "", [ "callbackTopic=", { "Fn::Select" : [ "0", { "Ref" : "AWS::NotificationARNs" } ] } ] ]},
                                 {"Fn::Join": [ "", [ "vpcId=", { "Ref": "VpcId" } ] ]},
                                 {"Fn::Join": [ "", [ "subnetId=", { "Ref": "SubnetId" } ] ]},
                                 {"Fn::Join": [ "", [ "zapiClientArn=", { "Fn::GetAtt" : ["ZapiClient", "Arn"] } ] ]},
@@ -270,6 +266,7 @@
                                 "mkdir /tmp/ssm",
                                 "curl https://amazon-ssm-us-west-2.s3.amazonaws.com/latest/linux_amd64/amazon-ssm-agent.rpm -o /tmp/ssm/amazon-ssm-agent.rpm",
                                 "yum install -y /tmp/ssm/amazon-ssm-agent.rpm",
+                                "systemctl status amazon-ssm-agent",
                                 "systemctl start amazon-ssm-agent",
                                 "aws cloudformation signal-resource --stack-name $name --region $region --logical-resource-id NFStoS3Instance --status SUCCESS --unique-id $instanceId",
                                 "aws sns publish --region $region --topic-arn arn:aws:sns:us-west-2:464262061435:copy1 --message '{\"instance-id\": \"'${instanceId}'\", \"deploy-agent\": { \"vpc-id\": \"'${vpcId}'\", \"subnet-id\": \"'${subnetId}'\", \"zapi-client-arn\": \"'${zapiClientArn}'\" }, \"status\": \"success\"}'"
