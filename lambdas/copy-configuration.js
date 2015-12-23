@@ -1,4 +1,4 @@
-var common = require('./common.js');
+var common = require('./common');
 var AWS = require('aws-sdk');
 
 // Returns/created user's copy configuration
@@ -29,7 +29,7 @@ exports.handler = function (event, context) {
                         message: 'Failed to query copy configuration by user uuid ' + userUuid + ' , ' + err
                     }));
                 } else {
-                    context.done(null, data);
+                    context.done(null, data.Items);
                 }
             });
             break;
@@ -42,6 +42,7 @@ exports.handler = function (event, context) {
                         message: 'Failed to create copy configuration for user uuid ' + userUuid + ' , ' + err
                     }));
                 } else {
+                    //TODO - invoke copy here
                     context.done();
                 }
             });

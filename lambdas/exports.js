@@ -57,7 +57,7 @@ exports.handler = function (event, context) {
                                             message: 'Failed to query exports by subnet ' + event.subnet + ' , ' + err
                                         }, callback);
                                     }else{
-                                        context.done(null, data.Items[0]);
+                                        context.done(null, data.Items);
                                     }
                                 });
                             }

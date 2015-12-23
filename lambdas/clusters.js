@@ -31,7 +31,7 @@ exports.handler = function (event, context) {
                         message: 'Failed to query cluster by user uuid ' + userUuid + ' , ' + err
                     }));
                 } else {
-                    context.done(null, data);
+                    context.done(null, data.Items);
                 }
             });
             break;

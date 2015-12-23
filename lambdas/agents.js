@@ -37,7 +37,7 @@ exports.handler = function (event, context) {
                         message: 'Failed to query agent by subnet ' + event.subnet + ' , ' + err
                     }));
                 }else{
-                    context.done(null, data);
+                    context.done(null, data.Items);
                 }
             });
             break;
