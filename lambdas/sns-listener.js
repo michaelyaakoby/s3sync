@@ -20,13 +20,12 @@ var AWS = require('aws-sdk');
 // status
 // id
 exports.handler = function (event, context) {
-    console.log('Received event:', JSON.stringify(event, null, 2));
-    var message = event.Records[0].Sns.Message;
-    //console.log('From SNS:', message);
+    //console.log('Received event:', JSON.stringify(event, null, 2));
+    var message = JSON.parse(event.Records[0].Sns.Message);
 
     switch (event.Records[0].Sns.Subject) {
         case 'deploy-agent-completed':
-            console.log('Got deploy-agent-completed message', message);
+            console.log('Got deploy-agent-completed message', JSON.stringify(message, null, 2));
             var agentInfo = message['deploy-agent'];
             var subnet = agentInfo['subnet-id'];
             var instance = agentInfo['instance-id'];
@@ -146,7 +145,9 @@ exports.handler = function (event, context) {
                 }
             });
             break;
-
+        default:
+            // finish the function on unexpected events (it gets a lot of CF events while creating an agent)
+            context.done();
     }
 };
 
