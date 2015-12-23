@@ -268,6 +268,9 @@
                                 "yum install -y /tmp/ssm/amazon-ssm-agent.rpm",
                                 "systemctl status amazon-ssm-agent",
                                 "systemctl start amazon-ssm-agent",
+                                "yum -y install git",
+                                "git clone https://github.com/michaelyaakoby/s3sync /opt/netapp/s3sync",
+                                "chmod +x /opt/netapp/s3sync/agent/scripts/*",
                                 "aws cloudformation signal-resource --stack-name $name --region $region --logical-resource-id NFStoS3Instance --status SUCCESS --unique-id $instanceId",
                                 "aws sns publish --region $region --topic-arn arn:aws:sns:us-west-2:464262061435:copy1 --message '{\"instance-id\": \"'${instanceId}'\", \"deploy-agent\": { \"vpc-id\": \"'${vpcId}'\", \"subnet-id\": \"'${subnetId}'\", \"zapi-client-arn\": \"'${zapiClientArn}'\" }, \"status\": \"success\"}'"
                             ]
