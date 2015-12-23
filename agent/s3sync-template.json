@@ -210,7 +210,7 @@
                                 "git clone https://github.com/michaelyaakoby/s3sync /opt/NetApp/s3sync",
                                 "chmod +x /opt/NetApp/s3sync/agent/scripts/*",
                                 "aws cloudformation signal-resource --stack-name $name --region $region --logical-resource-id AgentInstance --status SUCCESS --unique-id $instanceId",
-                                "aws sns publish --region $region --topic-arn $callbackTopic --subject 'deploy-agent-completed' --message '{\"instance-id\": \"'${instanceId}'\", \"deploy-agent\": { \"vpc-id\": \"'${vpcId}'\", \"subnet-id\": \"'${subnetId}'\" }, \"status\": \"success\"}'"
+                                "aws sns publish --region $region --topic-arn $callbackTopic --subject 'deploy-agent-completed' --message '{\"deploy-agent\": { \"vpc-id\": \"'${vpcId}'\", \"subnet-id\": \"'${subnetId}'\", \"instance-id\": \"'${instanceId}'\" }, \"status\": \"success\"}'"
                             ]
                         ]
                     }
