@@ -12,7 +12,7 @@ def usage():
   sys.exit(2)
 
 try:
-  opts, args = getopt.getopt(sys.argv[1:], "i:s:t:rn:", ["copy-id=", "source-nfs-url=", "target-s3-url=", "refres", "sns-topic="])
+  opts, args = getopt.getopt(sys.argv[1:], "c:s:t:rn:", ["copy-id=", "source-nfs-url=", "target-s3-url=", "refres", "sns-topic="])
 except getopt.GetoptError:
   usage()
 
@@ -20,19 +20,23 @@ copyId = sourceNfsUrl = targetS3Url = snsTopic = None
 refresh = False
 
 for opt, arg in opts:
-  if opt in ("-a", "--source-nfs-url"):
+  if opt in ("-c", "--copy-id"):
+    copyId = arg
+  if opt in ("-s", "--source-nfs-url"):
     sourceNfsUrl = arg
   elif opt in ("-t", "--target-s3-url"):
     targetS3Url = arg
   elif opt in ("-r", "--refresh"):
     refresh = true
-  elif opt in ("-s", "--sns-topic"):
+  elif opt in ("-n", "--sns-topic"):
     snsTopic = arg
 
-if sourceNfsUrl is None or targetS3Url is None:
+if sourceNfsUrl is None or targetS3Url is None or copyId is None:
   usage()
 
 nfsPattern = re.compile('nfs://([^/]+)(.*)')
+print sourceNfsUrl
+print nfsPattern.match(sourceNfsUrl)
 (nfsAddress, nfsPath) = nfsPattern.match(sourceNfsUrl).groups()
 nfsSource = nfsAddress + ":" + nfsPath 
 print "NFS Source: " + nfsSource
@@ -50,4 +54,4 @@ os.rmdir(mountDir)
 print "Unmounted from: " + mountDir
 
 if snsTopic is not None:
-  os.system("aws sns publish --region " + metadata.region + " --topic-arn " + snsTopic + " --subject copy-to-s3 --message '{\"copyId\": \"" + copyId + "\", \"instance-id\": \"" + metadata.instanceId + "\", \"subnet-id\": \"" + metadata.subnet +"\", \"copy-completed\": { \"cluster-mgmt-ip\": \"" + metadata.address + "\" }}'")
+  os.system("aws sns publish --region " + metadata.region + " --topic-arn " + snsTopic + " --subject copy-to-s3 --message '{\"copyId\": \"" + copyId + "\", \"instance-id\": \"" + metadata.instanceId + "\", \"subnet-id\": \"" + metadata.subnet +"\", \"copy-completed\": { \"source\": \"" + sourceNfsUrl + "\", \"destination\": \"" + targetS3Url + "\" }}'")

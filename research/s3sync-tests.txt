@@ -1,5 +1,4 @@
-./agent/scripts/copy-to-s3.py  -s nfs://10.60.18.45/data -t s3://ontap-sync/data/
-
+./agent/scripts/copy-to-s3.py  -s nfs://10.60.18.45/data -t s3://ontap-sync/data/ -c kukipuki -n arn:aws:sns:us-west-2:464262061435:copy1 
 
 Using s3utils
 =============
