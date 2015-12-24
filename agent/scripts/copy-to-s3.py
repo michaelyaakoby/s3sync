@@ -35,8 +35,6 @@ if sourceNfsUrl is None or targetS3Url is None or copyId is None:
   usage()
 
 nfsPattern = re.compile('nfs://([^/]+)(.*)')
-print sourceNfsUrl
-print nfsPattern.match(sourceNfsUrl)
 (nfsAddress, nfsPath) = nfsPattern.match(sourceNfsUrl).groups()
 nfsSource = nfsAddress + ":" + nfsPath 
 print "NFS Source: " + nfsSource
