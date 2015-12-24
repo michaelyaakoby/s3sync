@@ -6,6 +6,7 @@ import requests
 import xml.etree.ElementTree as ET
 import getopt
 import json
+import metadata
 
 def usage():
   print "Usage: " + sys.argv[0] + " --address <ontap-cluster> --user <admin-user-name> --password <admin-password> [--sns-topic <sns-topic-arn>]"
@@ -93,9 +94,5 @@ print '------- Exports ---------'
 print exports
 
 if snsTopic is not None:
-  instanceId = requests.get("http://169.254.169.254/latest/meta-data/instance-id").text
-  region = requests.get("http://169.254.169.254/latest/meta-data/placement/availability-zone").text[:-1]
-  nicMac = requests.get("http://169.254.169.254/latest/meta-data/network/interfaces/macs").text
-  subnet = requests.get("http://169.254.169.254/latest/meta-data/network/interfaces/macs/" + nicMac + "/subnet-id").text
   jsonExports = json.dumps(exports)
-  os.system("aws sns publish --region " + region + " --topic-arn " + snsTopic + " --subject find-exports --message '{\"instance-id\": \"" + instanceId + "\", \"find-exports\": { \"cluster-mgmt-ip\": \"" + address + "\", \"subnet-id\": \"" + subnet +"\", \"exports\": " + jsonExports + " }'")
+  os.system("aws sns publish --region " + metadata.region + " --topic-arn " + snsTopic + " --subject find-exports --message '{\"instance-id\": \"" + metadata.instanceId + "\", \"find-exports\": { \"cluster-mgmt-ip\": \"" + metadata.address + "\", \"subnet-id\": \"" + metadata.subnet +"\", \"exports\": " + jsonExports + " }}'")
