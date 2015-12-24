@@ -1,3 +1,6 @@
+./agent/scripts/copy-to-s3.py  -s nfs://10.60.18.45/data -t s3://ontap-sync/data/
+
+
 Using s3utils
 =============
 The hard way
