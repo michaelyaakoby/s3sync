@@ -52,4 +52,4 @@ os.rmdir(mountDir)
 print "Unmounted from: " + mountDir
 
 if snsTopic is not None:
-  os.system("aws sns publish --region " + metadata.region + " --topic-arn " + snsTopic + " --subject copy-to-s3 --message '{\"copyId\": \"" + copyId + "\", \"instance-id\": \"" + metadata.instanceId + "\", \"subnet-id\": \"" + metadata.subnet +"\", \"copy-completed\": { \"source\": \"" + sourceNfsUrl + "\", \"destination\": \"" + targetS3Url + "\" }}'")
+  os.system("aws sns publish --region " + metadata.region + " --topic-arn " + snsTopic + " --subject copy-to-s3 --message '{\"copy-id\": \"" + copyId + "\", \"instance-id\": \"" + metadata.instanceId + "\", \"subnet-id\": \"" + metadata.subnet +"\", \"copy-completed\": { \"source\": \"" + sourceNfsUrl + "\", \"destination\": \"" + targetS3Url + "\" }}'")
