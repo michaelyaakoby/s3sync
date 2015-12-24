@@ -1,4 +1,4 @@
-var common = require('./common.js');
+var common = require('./common');
 var AWS = require('aws-sdk');
 
 exports.handler = function (event, context) {
