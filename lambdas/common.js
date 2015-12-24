@@ -85,6 +85,7 @@ exports.queryClustersByUserUuid = function (userUuid, onQueryResponse) {
 exports.queryClustersBySubnetAndIp = function (subnet, clusterIp, onQueryResponse) {
     console.log('Query table ' + clusters_table.config.params.TableName + ' by subnet=' + subnet + ', cluster ip=' + clusterIp);
     clusters_table.query({
+        IndexName: 'subnet_mgmt_ip-index',
         KeyConditionExpression: 'subnet_mgmt_ip = :subnet_mgmt_ip',
         ExpressionAttributeValues: {
             ":subnet_mgmt_ip": {S: subnet + ':' + clusterIp}
@@ -205,6 +206,7 @@ exports.queryExportsBySubnetAndIp = function (subnet, clusterIp, onQueryResponse
     console.log('Query table ' + exports_table.config.params.TableName + ' by subnet=' + subnet + ', cluster ip=' + clusterIp);
 
     exports_table.query({
+        IndexName: 'subnet_mgmt_ip-index',
         KeyConditionExpression: 'subnet_mgmt_ip = :subnet_mgmt_ip',
         ExpressionAttributeValues: {
             ":subnet_mgmt_ip": {S: subnet + ':' + clusterIp}

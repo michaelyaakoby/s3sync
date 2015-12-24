@@ -57,30 +57,35 @@ exports.handler = function (event, context) {
             });
 
             break;
-        case 'exports':
-            common.queryExportsBySubnetAndIp(message.subnet, message['cluster-mgmt-ip'], function (err, data) {
+        case 'find-exports':
+            console.log('Got find-exports message', JSON.stringify(message, null, 2));
+            var exportsData = message['find-exports'];
+            subnet = exportsData['subnet-id'];
+            var clusterMgmtIp = exportsData['cluster-mgmt-ip'];
+
+            common.queryExportsBySubnetAndIp(subnet, clusterMgmtIp, function (err, data) {
                 if (err) {
                     context.fail(JSON.stringify({
                         code: 'Error',
-                        message: 'Failed to query exports with subnet ' + message.subnet + ' , ' + err
+                        message: 'Failed to query exports with subnet ' + subnet + ' , ' + err
                     }));
                 } else {
                     if (data.Count === 0) {
                         // first time that we received exports - find user uuid in clusters table
-                        common.queryClustersBySubnetAndIp(message.subnet, message['cluster-mgmt-ip'], function (err, data) {
+                        common.queryClustersBySubnetAndIp(subnet, clusterMgmtIp, function (err, data) {
                             if (err) {
                                 context.fail(JSON.stringify({
                                     code: 'Error',
-                                    message: 'Failed to query exports with subnet ' + message.subnet + ' , ' + err
+                                    message: 'Failed to query exports with subnet ' + subnet + ' , ' + err
                                 }));
                             } else {
                                 if (data.Count === 1) {
                                     var userUuid = data.Items[0].user_uuid.S;
-                                    common.updateExports(userUuid, message.subnet, message['cluster-mgmt-ip'], message.exports, function (err, data) {
+                                    common.updateExports(userUuid, subnet, clusterMgmtIp, exportsData.exports, function (err, data) {
                                         if (err) {
                                             context.fail(JSON.stringify({
                                                 code: 'Error',
-                                                message: 'Failed to update exports for ' + message.subnet + ' and cluster management ip ' + message['cluster-mgmt-ip']
+                                                message: 'Failed to update exports for ' + subnet + ' and cluster management ip ' + clusterMgmtIp
                                             }));
                                         } else {
                                             context.done();
@@ -89,7 +94,7 @@ exports.handler = function (event, context) {
                                 } else {
                                     context.fail(JSON.stringify({
                                         code: 'Error',
-                                        message: 'Got unexpected number of clusters for subnet ' + message.subnet + ' and cluster management ip ' + message['cluster-mgmt-ip']
+                                        message: 'Got unexpected number of clusters for subnet ' + subnet + ' and cluster management ip ' + clusterMgmtIp
                                     }));
                                 }
                             }
@@ -97,11 +102,11 @@ exports.handler = function (event, context) {
                     } else if (data.Count === 1) {
                         // got update for existing data
                         var userUuid = data.Items[0].user_uuid.S;
-                        common.updateExports(userUuid, message.subnet, message['cluster-mgmt-ip'], message.exports, function (err, data) {
+                        common.updateExports(userUuid, subnet, clusterMgmtIp, exportsData.exports, function (err, data) {
                             if (err) {
                                 context.fail(JSON.stringify({
                                     code: 'Error',
-                                    message: 'Failed to update exports for ' + message.subnet + ' and cluster management ip ' + message['cluster-mgmt-ip']
+                                    message: 'Failed to update exports for ' + subnet + ' and cluster management ip ' + clusterMgmtIp
                                 }));
                             } else {
                                 context.done();
@@ -110,7 +115,7 @@ exports.handler = function (event, context) {
                     } else {
                         context.fail(JSON.stringify({
                             code: 'Error',
-                            message: 'Got unexpected number of exports for subnet ' + message.subnet + ' and cluster management ip ' + message['cluster-mgmt-ip']
+                            message: 'Got unexpected number of exports for subnet ' + subnet + ' and cluster management ip ' + clusterMgmtIp
                         }));
                     }
                 }
@@ -147,6 +152,7 @@ exports.handler = function (event, context) {
             break;
         default:
             // finish the function on unexpected events (it gets a lot of CF events while creating an agent)
+            console.log('Unhandled message:', JSON.stringify(message, null, 2));
             context.done();
     }
 };
