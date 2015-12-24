@@ -17,7 +17,7 @@ except getopt.GetoptError:
   usage()
 
 sourceNfsUrl = targetS3Url = snsTopic = None
-refresh = false
+refresh = False
 
 for opt, arg in opts:
   if opt in ("-a", "--source-nfs-url"):
