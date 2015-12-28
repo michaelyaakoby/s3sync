@@ -255,6 +255,7 @@ exports.queryCopyConfigurationBySubnetAndId = function (subnet, id, onQueryRespo
     console.log('Query table ' + copy_configuration_table.config.params.TableName + ' by subnet=' + subnet + ', id=' + subnet);
 
     copy_configuration_table.query({
+        IndexName: 'subnet-index',
         KeyConditionExpression: 'subnet = :subnet',
         FilterExpression: 'id = :id',
         ExpressionAttributeValues: {
@@ -291,7 +292,7 @@ exports.updateCopyConfiguration = function (userUuid, subnet, id, status, onUpda
     copy_configuration_table.updateItem({
         "Key": {
             "user_uuid": {S: userUuid},
-            "subnet_mgmt_ip": {S: subnet}
+            "subnet": {S: subnet}
         },
         "UpdateExpression": "SET copy_status = :copy_status",
         "ConditionExpression": "id = :id",

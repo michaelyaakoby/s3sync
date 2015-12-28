@@ -122,20 +122,23 @@ exports.handler = function (event, context) {
             });
             break;
         case 'copy-to-s3':
-            common.queryCopyConfigurationBySubnetAndId(message.subnet, message.id, function (err, data) {
+            var subnetId = message['subnet-id'];
+            var copyId = message['copy-id'];
+            common.queryCopyConfigurationBySubnetAndId(subnetId, copyId, function (err, data) {
                 if (err) {
                     context.fail(JSON.stringify({
                         code: 'Error',
-                        message: 'Failed to query copy configuration by subnet ' + message.subnet + ' and id ' + message.id + ', ' + err
+                        message: 'Failed to query copy configuration by subnet ' + subnetId + ' and id ' + copyId + ', ' + err
                     }));
                 } else {
                     if (data.Count === 1) {
                         var userUuid = data.Items[0].user_uuid.S;
-                        common.updateCopyConfiguration(userUuid, message.subnet, message.id, message.status, function (err, data) {
+                        var status = (message['copy-completed']) ? 'completed' : JSON.stringify(message);
+                        common.updateCopyConfiguration(userUuid, subnetId, copyId, status, function (err, data) {
                             if (err) {
                                 context.fail(JSON.stringify({
                                     code: 'Error',
-                                    message: 'Failed to update copy configuration by subnet ' + message.subnet + ' and id ' + message.id + ', ' + err
+                                    message: 'Failed to update copy configuration by subnet ' + subnetId + ' and id ' + copyId + ', ' + err
                                 }));
                             } else {
                                 context.done();
@@ -144,7 +147,7 @@ exports.handler = function (event, context) {
                     } else {
                         context.fail(JSON.stringify({
                             code: 'Error',
-                            message: 'Got unexpected number of copy configurations for subnet ' + message.subnet + ' and id ' + message.id
+                            message: 'Got unexpected number of copy configurations for subnet ' + subnetId + ' and id ' + copyId
                         }));
                     }
                 }
