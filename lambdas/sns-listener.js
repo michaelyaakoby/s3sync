@@ -121,7 +121,7 @@ exports.handler = function (event, context) {
                 }
             });
             break;
-        case 'copy-2-s3':
+        case 'copy-to-s3':
             common.queryCopyConfigurationBySubnetAndId(message.subnet, message.id, function (err, data) {
                 if (err) {
                     context.fail(JSON.stringify({

@@ -353,6 +353,7 @@ exports.executeCommand = function (region, instance, awsAccessKey, awsSecretKey,
         Content: JSON.stringify(content)
     }, function (err, createDocumentData) {
         if (err) {
+            console.log(err);
             onExecuteCommand({
                 code: 'Error',
                 message: 'Failed to to create document ' + documentName + ', ' + err

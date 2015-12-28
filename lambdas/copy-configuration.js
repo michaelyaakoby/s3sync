@@ -16,6 +16,7 @@ var sns_topic = 'arn:aws:sns:us-west-2:718273455463:occmservice';
 // receives the following parameters:
 // http-method
 // user-uuid
+// region
 // subnet
 // source
 // target
