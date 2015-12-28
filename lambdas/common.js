@@ -306,6 +306,7 @@ exports.updateCopyConfiguration = function (userUuid, subnet, id, status, onUpda
 ///// END COPY CONFIGURATION /////
 
 
+///// UTILS /////
 exports.errorHandler = function (errorObj, callback) {
     console.log(JSON.stringify(errorObj, null, 2));
     callback(errorObj, null);
@@ -317,4 +318,80 @@ exports.uuid = function () {
     }
 
     return s4() + s4() + '-' + s4() + '-' + s4() + '-' + s4() + '-' + s4() + s4() + s4();
-}
+};
+///// END UTILS /////
+
+///// EXECUTE SSM COMMAND /////
+exports.executeCommand = function (region, instance, awsAccessKey, awsSecretKey, commandName, command, onExecuteCommand) {
+    console.log('Executing command - region=' + region + ', instance=' + instance + ', aws access key=' + awsAccessKey + ', aws secret key=' + awsSecretKey + ', command name=' + commandName + ', command=' + command);
+    var options = {
+        region: region,
+        accessKeyId: awsAccessKey,
+        secretAccessKey: awsSecretKey
+    };
+    var ssm = new AWS.SSM(options);
+
+    var content = {
+        schemaVersion: '1.2',
+        description: commandName,
+        parameters: {},
+        runtimeConfig: {
+            "aws:runShellScript": {
+                properties: [{
+                    id: '0.aws:runShellScript',
+                    runCommand: [command]
+                }]
+            }
+        }
+    };
+
+    var documentName = commandName + '_' + new Date().getTime();
+
+    // create command
+    ssm.createDocument({
+        Name: documentName,
+        Content: JSON.stringify(content)
+    }, function (err, createDocumentData) {
+        if (err) {
+            onExecuteCommand({
+                code: 'Error',
+                message: 'Failed to to create document ' + documentName + ', ' + err
+            }, null);
+        } else {
+            console.log('Document created');
+
+            // send command
+            ssm.sendCommand({
+                DocumentName: documentName,
+                InstanceIds: [instance]
+            }, function (err, sendCommandData) {
+                if (err) {
+                    onExecuteCommand({
+                        code: 'Error',
+                        message: 'Failed to send command ' + documentName + ' , ' + err
+                    }, null);
+                } else {
+                    console.log('Command executed');
+                    // delete document
+                    ssm.deleteDocument({
+                        Name: documentName
+                    }, function (err, deleteDocumentData) {
+                        if (err) {
+                            console.log(err);
+                            onExecuteCommand({
+                                code: 'Error',
+                                message: 'Failed to delete document ' + documentName + ' , ' + err
+                            }, null);
+                        } else {
+                            console.log('Document deleted');
+                            onExecuteCommand(null, sendCommandData);
+                        }
+                    });
+                }
+            });
+        }
+    });
+
+};
+///// END EXECUTE SSM COMMAND /////
+

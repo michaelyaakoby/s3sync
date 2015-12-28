@@ -20,7 +20,7 @@ var AWS = require('aws-sdk');
 // status
 // id
 exports.handler = function (event, context) {
-    //console.log('Received event:', JSON.stringify(event, null, 2));
+    console.log('Received event:', JSON.stringify(event, null, 2));
     var message = JSON.parse(event.Records[0].Sns.Message);
 
     switch (event.Records[0].Sns.Subject) {
@@ -121,7 +121,7 @@ exports.handler = function (event, context) {
                 }
             });
             break;
-        case 'copy':
+        case 'copy-2-s3':
             common.queryCopyConfigurationBySubnetAndId(message.subnet, message.id, function (err, data) {
                 if (err) {
                     context.fail(JSON.stringify({

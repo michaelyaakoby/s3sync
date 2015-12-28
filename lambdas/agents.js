@@ -3,8 +3,6 @@ var AWS = require('aws-sdk');
 var async = require('async');
 var http = require('https');
 
-var box_cf_template = 'https://raw.githubusercontent.com/michaelyaakoby/s3sync/master/agent/s3sync-template.json';
-
 var sns_topic = 'arn:aws:sns:us-west-2:718273455463:occmservice';
 
 // Returns/creates user's agents

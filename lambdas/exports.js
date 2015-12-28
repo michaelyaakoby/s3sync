@@ -1,6 +1,7 @@
 var common = require('./common');
 var AWS = require('aws-sdk');
 
+var sns_topic = 'arn:aws:sns:us-west-2:718273455463:occmservice';
 // Returns specific cluster exports
 //
 // GET mode
@@ -29,75 +30,42 @@ exports.handler = function (event, context) {
                             message: 'Failed to query agent by subnet ' + event.subnet + ' , ' + err
                         }));
                     } else {
-                        if(agentData.Items[0].instance){
+                        if (agentData.Items[0].instance) {
+
                             var instance = agentData.Items[0].instance.S;
-
-                            var ssm = new AWS.SSM(options = {
-                                region: event.region,
-                                accessKeyId: userData.Items[0].aws_access_key.S,
-                                secretAccessKey: userData.Items[0].aws_secret_key.S
-                            });
-
-                            var documentName = 'ExportsScript_' + new Date().getTime();
-
+                            var awsAccessKey = userData.Items[0].aws_access_key.S;
+                            var awsSecretKey = userData.Items[0].aws_secret_key.S;
                             //TODO - username/password and sns should be parameters to the lambda
-                            var command = '/opt/NetApp/s3sync/agent/scripts/find-exports.py --address ' + event['cluster-mgmt-ip'] + ' --user admin --password Netapp234 --sns-topic arn:aws:sns:us-west-2:718273455463:occmservice';
-
-                            var content = {
-                                schemaVersion: '1.2',
-                                description: 'Get NFS exports',
-                                parameters: {},
-                                runtimeConfig: {
-                                    "aws:runShellScript":{
-                                        properties: [{
-                                            id: '0.aws:runShellScript',
-                                            runCommand: [command]
-                                        }]
-                                    }
-                                }
-                            };
-
-                            var params = {
-                                Name: documentName,
-                                Content: JSON.stringify(content)
-                            };
-
-                            //TODO - have to find and use or create and use
-                            ssm.createDocument(params, function(err, createDocumentData) {
-                                if(err){
-                                    context.fail(JSON.stringify({
+                            var command = '/opt/NetApp/s3sync/agent/scripts/find-exports.py --address ' + event['cluster-mgmt-ip'] + ' --user admin --password Netapp234 --sns-topic ' + sns_topic;
+                            common.executeCommand(event.region, instance, awsAccessKey, awsSecretKey, 'Export', command, function (err, data) {
+                                if (err) {
+                                    context.fail({
                                         code: 'Error',
-                                        message: 'Failed to to create document ,' + err
-                                    }));
-                                }else{
-                                    var params = {
-                                        DocumentName: documentName,
-                                        InstanceIds: [instance]
-                                    };
-
-                                    ssm.sendCommand(params, function (err, data) {
+                                        message: 'Failed to execute command for subnet ' + event.subnet + ' , ' + err
+                                    });
+                                } else {
+                                    common.queryExportsByUserUuidAndSubnetAndIp(userUuid, event.subnet, event['cluster-mgmt-ip'], function (err, data) {
                                         if (err) {
-                                            context.fail(JSON.stringify({
+                                            context.fail({
                                                 code: 'Error',
-                                                message: 'Failed to send command for user uuid ' + userUuid + ' , ' + err
-                                            }));
-                                        } else {
-                                            common.queryExportsByUserUuidAndSubnetAndIp(userUuid, event.subnet, event['cluster-mgmt-ip'], function(err, data){
-                                                if(err){
-                                                    common.errorHandler({
-                                                        code: 'Error',
-                                                        message: 'Failed to query exports by subnet ' + event.subnet + ' , ' + err
-                                                    }, callback);
-                                                }else{
-                                                    context.done(null, data.Items);
-                                                }
+                                                message: 'Failed to query exports by subnet ' + event.subnet + ' , ' + err
                                             });
+                                        } else {
+                                            if (data.Count === 0) {
+                                                context.done(null, []);
+                                            } else if (data.Count === 1) {
+                                                context.done(null, data.Items[0].exports.S);
+                                            } else {
+                                                context.fail({
+                                                    code: 'Error',
+                                                    message: 'Got unexpected number of exports for subnet ' + event.subnet + ' , ' + err
+                                                });
+                                            }
                                         }
                                     });
                                 }
                             });
-
-                        }else{
+                        } else {
                             // agent is not ready yet
                             content.done(null, {message: 'agent not ready yet'});
                         }
