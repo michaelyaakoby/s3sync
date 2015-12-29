@@ -285,9 +285,14 @@ exports.updateCopyConfiguration = function (userUuid, subnet, id, status, onUpda
 
 
 ///// UTILS /////
-exports.errorHandler = function (errorObj, callback) {
-    console.log(JSON.stringify(errorObj, null, 2));
-    callback(errorObj, null);
+
+exports.errorHandler = function (callback, msg) {
+    var error = {
+        code: 'Error',
+        message: msg
+    };
+    console.log(JSON.stringify(error, null, 2));
+    callback(error, null);
 };
 
 exports.uuid = function () {

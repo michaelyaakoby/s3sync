@@ -40,10 +40,10 @@ exports.handler = function (event, context) {
                     }
                 });
             } else {
-                common.errorHandler({
+                context.fail(JSON.stringify({
                     code: 'NotFound',
                     message: 'Failed to find user by user uuid ' + userUuid
-                }, callback);
+                }));
             }
         }
     });

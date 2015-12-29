@@ -43,18 +43,12 @@ exports.handler = function (event, context) {
                     // #1 - get AWS access and secret key
                     common.queryUserByUuid(userUuid, function (err, data) {
                         if (err) {
-                            common.errorHandler({
-                                code: 'Error',
-                                message: 'Failed to query user by uuid ' + userUuid + ' , ' + err
-                            }, callback);
+                            common.errorHandler(callback, 'Failed to query user by uuid ' + userUuid + ' , ' + err);
                         } else {
                             if (data.Count === 1) {
                                 callback(null, data.Items[0].name.S, data.Items[0].aws_access_key.S, data.Items[0].aws_secret_key.S);
                             } else {
-                                common.errorHandler({
-                                    code: 'NotFound',
-                                    message: 'Failed to find user by user uuid ' + userUuid
-                                }, callback);
+                                common.errorHandler(callback, 'Failed to find user by user uuid ' + userUuid);
                             }
                         }
                     });
@@ -114,10 +108,7 @@ exports.handler = function (event, context) {
 
                     cf.createStack(params, function (err, data) {
                         if (err) {
-                            common.errorHandler({
-                                code: 'Error',
-                                message: 'Failed to create stack for user uuid ' + userUuid + ', ' + err
-                            }, callback);
+                            common.errorHandler(callback, 'Failed to create stack for user uuid ' + userUuid + ', ' + err);
                         } else {
                             callback(null);
                         }

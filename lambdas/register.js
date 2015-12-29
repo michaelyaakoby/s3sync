@@ -17,20 +17,14 @@ exports.handler = function (event, context) {
                 // #1 - check if the email is not already registered
                 common.queryUserByEmail(event.email, function (err, data) {
                     if (err) {
-                        common.errorHandler({
-                            code: 'Error',
-                            message: 'Failed to query user by email ' + event.email + ' , ' + err
-                        }, callback);
+                        common.errorHandler(callback, 'Failed to query user by email ' + event.email + ' , ' + err);
                     } else {
                         if (data.Count === 0) {
                             // continue to register step
                             callback(null);
                         } else {
                             // provided email is already in the DB
-                            common.errorHandler({
-                                code: 'Conflict',
-                                message: 'User with email ' + event.email + ' is already registered'
-                            }, callback);
+                            common.errorHandler(callback, 'User with email ' + event.email + ' is already registered');
                         }
                     }
                 });
@@ -41,10 +35,7 @@ exports.handler = function (event, context) {
                 var uuid = common.uuid();
                 common.createUser(uuid, event.email, event.password, event.name, event['aws-access-key'], event['aws-secret-key'], function (err, data) {
                     if (err) {
-                        common.errorHandler({
-                            code: 'Error',
-                            message: 'Failed to create user with email ' + event.email + ' , ' + err
-                        }, callback);
+                        common.errorHandler(callback, 'Failed to create user with email ' + event.email + ' , ' + err);
                     } else {
                         callback(null, uuid);
                     }

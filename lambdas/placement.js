@@ -14,18 +14,12 @@ exports.handler = function (event, context) {
                 // #1 - get AWS access and secret key
                 common.queryUserByUuid(userUuid, function (err, data) {
                     if (err) {
-                        common.errorHandler({
-                            code: 'Error',
-                            message: 'Failed to query user by uuid ' + userUuid + ' , ' + err
-                        }, callback);
+                        common.errorHandler(callback, 'Failed to query user by uuid ' + userUuid + ' , ' + err);
                     } else {
                         if (data.Count === 1) {
                             callback(null, data.Items[0].aws_access_key.S, data.Items[0].aws_secret_key.S);
                         } else {
-                            common.errorHandler({
-                                code: 'NotFound',
-                                message: 'Failed to find user by user uuid ' + userUuid
-                            }, callback);
+                            common.errorHandler(callback, 'Failed to find user by user uuid ' + userUuid);
                         }
                     }
                 });
@@ -41,10 +35,7 @@ exports.handler = function (event, context) {
 
                 ec2.describeRegions(function (err, data) {
                     if (err) {
-                        common.errorHandler({
-                            code: 'Error',
-                            message: 'Failed to describe regions for user uuid ' + userUuid
-                        }, callback);
+                        common.errorHandler(callback, 'Failed to describe regions for user uuid ' + userUuid);
                     } else {
                         var regionNames = Object.keys(data.Regions).map(function(key){
                             return data.Regions[key].RegionName;
@@ -59,10 +50,7 @@ exports.handler = function (event, context) {
                 // #3 - describe subnets
                 async.map(regionNames, doTheWork, function (err, results) {
                     if (err) {
-                        common.errorHandler({
-                            code: 'Error',
-                            message: 'Failed to describe subnets for user uuid ' + userUuid
-                        }, callback);
+                        common.errorHandler(callback, 'Failed to describe subnets for user uuid ' + userUuid);
                     } else {
                         var flattened = results.reduce(function(a, b) {
                             return a.concat(b);
@@ -81,10 +69,7 @@ exports.handler = function (event, context) {
 
                     ec2.describeSubnets(function (err, data) {
                         if (err) {
-                            common.errorHandler({
-                                code: 'Error',
-                                message: 'Failed to describe subnets for user uuid ' + event['user-uuid']
-                            }, internalCallback);
+                            common.errorHandler(internalCallback, 'Failed to describe subnets for user uuid ' + event['user-uuid']);
                         } else {
 
                             var subnets = Object.keys(data.Subnets).map(function(key){
