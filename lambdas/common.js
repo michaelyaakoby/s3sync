@@ -1,5 +1,7 @@
 var AWS = require('aws-sdk');
 
+exports.sns_topic = 'arn:aws:sns:us-west-2:718273455463:occmservice';
+
 ///// USERS /////
 var users_table = new AWS.DynamoDB({params: {TableName: 'users'}});
 
@@ -236,6 +238,17 @@ exports.updateExports = function (userUuid, subnet, clusterIp, exports, onUpdate
 
 ///// COPY CONFIGURATION /////
 var copy_configuration_table = new AWS.DynamoDB({params: {TableName: 'copy_configuration'}});
+
+exports.scanCopyConfigurationByCopyStatus = function(status, onQueryResponse) {
+    console.log('Scan table ' + copy_configuration_table.config.params.TableName + ' by user copy_status=' + status);
+
+    copy_configuration_table.scan({
+        FilterExpression: 'copy_status = :copy_status',
+        ExpressionAttributeValues: {
+            ":copy_status": {S: status}
+        }
+    }, onQueryResponse);
+};
 
 exports.queryCopyConfigurationByUserUuidAndSubnet = function (userUuid, subnet, onQueryResponse) {
     console.log('Query table ' + copy_configuration_table.config.params.TableName + ' by user uuid=' + userUuid + ', subnet=' + subnet);

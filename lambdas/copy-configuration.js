@@ -2,8 +2,6 @@ var common = require('./common');
 var AWS = require('aws-sdk');
 var async = require('async');
 
-var sns_topic = 'arn:aws:sns:us-west-2:718273455463:occmservice';
-
 // Returns/created user's copy configuration
 //
 // GET mode
@@ -82,7 +80,7 @@ exports.handler = function (event, context) {
                     },
                     function (instance, awsAccessKey, awsSecretKey, callback) {
                         // #4 - execute command
-                        var command = '/opt/NetApp/s3sync/agent/scripts/copy-to-s3.py  -s ' + event.source + ' -t ' + event.target + ' -c ' + id + ' -n ' + sns_topic;
+                        var command = '/opt/NetApp/s3sync/agent/scripts/copy-to-s3.py  -s ' + event.source + ' -t ' + event.target + ' -c ' + id + ' -n ' + common.sns_topic;
                         common.executeCommand(event.region, instance, awsAccessKey, awsSecretKey, 'Copy', command, function (err, data) {
                             if (err) {
                                 common.errorHandler({
