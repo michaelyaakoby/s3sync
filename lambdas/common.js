@@ -12,9 +12,7 @@ exports.queryUserByEmail = function (email, onQueryResponse) {
         ExpressionAttributeValues: {
             ":email": {S: email}
         }
-    }, function (err, data) {
-        onQueryResponse(err, data);
-    });
+    }, onQueryResponse);
 };
 
 exports.queryUserByUuid = function (user_uuid, onQueryResponse) {
@@ -25,9 +23,7 @@ exports.queryUserByUuid = function (user_uuid, onQueryResponse) {
         ExpressionAttributeValues: {
             ":user_uuid": {S: user_uuid}
         }
-    }, function (err, data) {
-        onQueryResponse(err, data);
-    });
+    }, onQueryResponse);
 };
 
 
@@ -45,9 +41,7 @@ exports.createUser = function (user_uuid, email, password, name, awsAccessKey, a
         }
     };
 
-    users_table.putItem(item, function (err, data) {
-        onCreateResponse(err, data);
-    });
+    users_table.putItem(item, onCreateResponse);
 };
 
 exports.updateUserAwsCredentials = function (email, awsAccessKey, awsSecretKey, onUpdateResponse) {
@@ -62,9 +56,7 @@ exports.updateUserAwsCredentials = function (email, awsAccessKey, awsSecretKey, 
             ":aws_access_key": {S: awsAccessKey},
             ":aws_secret_key": {S: awsSecretKey}
         }
-    }, function (err, data) {
-        onUpdateResponse(err, data);
-    });
+    }, onUpdateResponse);
 };
 
 ///// END USERS /////
@@ -79,9 +71,7 @@ exports.queryClustersByUserUuid = function (userUuid, onQueryResponse) {
         ExpressionAttributeValues: {
             ":user_uuid": {S: userUuid}
         }
-    }, function (err, data) {
-        onQueryResponse(err, data);
-    });
+    }, onQueryResponse);
 };
 
 exports.queryClustersBySubnetAndIp = function (subnet, clusterIp, onQueryResponse) {
@@ -92,9 +82,7 @@ exports.queryClustersBySubnetAndIp = function (subnet, clusterIp, onQueryRespons
         ExpressionAttributeValues: {
             ":subnet_mgmt_ip": {S: subnet + ':' + clusterIp}
         }
-    }, function (err, data) {
-        onQueryResponse(err, data);
-    });
+    }, onQueryResponse);
 };
 
 exports.createCluster = function (userUuid, region, vpc, subnet, clusterIp, userName, password, onCreateResponse) {
@@ -113,9 +101,7 @@ exports.createCluster = function (userUuid, region, vpc, subnet, clusterIp, user
         }
     };
 
-    clusters_table.putItem(item, function (err, data) {
-        onCreateResponse(err, data);
-    });
+    clusters_table.putItem(item, onCreateResponse);
 };
 ///// END CLUSTERS /////
 
@@ -135,9 +121,7 @@ exports.createAgent = function (userUuid, region, vpc, subnet, onCreateResponse)
         }
     };
 
-    agents_table.putItem(item, function (err, data) {
-        onCreateResponse(err, data);
-    });
+    agents_table.putItem(item, onCreateResponse);
 };
 
 exports.queryAgentByUserUuidAndSubnet = function (userUuid, subnet, onQueryResponse) {
@@ -149,9 +133,7 @@ exports.queryAgentByUserUuidAndSubnet = function (userUuid, subnet, onQueryRespo
             ":user_uuid": {S: userUuid},
             ":subnet": {S: subnet}
         }
-    }, function (err, data) {
-        onQueryResponse(err, data);
-    });
+    }, onQueryResponse);
 };
 
 exports.queryAgentBySubnet = function (subnet, onQueryResponse) {
@@ -163,9 +145,7 @@ exports.queryAgentBySubnet = function (subnet, onQueryResponse) {
         ExpressionAttributeValues: {
             ":subnet": {S: subnet}
         }
-    }, function (err, data) {
-        onQueryResponse(err, data);
-    });
+    }, onQueryResponse);
 };
 
 exports.updateAgent = function (userUuid, subnet, instance, status, onUpdateResponse) {
@@ -181,9 +161,7 @@ exports.updateAgent = function (userUuid, subnet, instance, status, onUpdateResp
             ":instance": {S: instance},
             ":agent_status": {S: status}
         }
-    }, function (err, data) {
-        onUpdateResponse(err, data);
-    });
+    }, onUpdateResponse);
 };
 ///// END AGENTS /////
 
@@ -199,9 +177,7 @@ exports.queryExportsByUserUuidAndSubnetAndIp = function (userUuid, subnet, clust
             ":user_uuid": {S: userUuid},
             ":subnet_mgmt_ip": {S: subnet + ':' + clusterIp}
         }
-    }, function (err, data) {
-        onQueryResponse(err, data);
-    });
+    }, onQueryResponse);
 };
 
 exports.queryExportsBySubnetAndIp = function (subnet, clusterIp, onQueryResponse) {
@@ -213,9 +189,7 @@ exports.queryExportsBySubnetAndIp = function (subnet, clusterIp, onQueryResponse
         ExpressionAttributeValues: {
             ":subnet_mgmt_ip": {S: subnet + ':' + clusterIp}
         }
-    }, function (err, data) {
-        onQueryResponse(err, data);
-    });
+    }, onQueryResponse);
 };
 
 exports.updateExports = function (userUuid, subnet, clusterIp, exports, onUpdateResponse) {
@@ -230,9 +204,7 @@ exports.updateExports = function (userUuid, subnet, clusterIp, exports, onUpdate
         "ExpressionAttributeValues": {
             ":exports": {S: JSON.stringify(exports)}
         }
-    }, function (err, data) {
-        onUpdateResponse(err, data);
-    });
+    }, onUpdateResponse);
 };
 ///// END EXPORTS /////
 
@@ -259,9 +231,7 @@ exports.queryCopyConfigurationByUserUuidAndSubnet = function (userUuid, subnet, 
             ":user_uuid": {S: userUuid},
             ":subnet": {S: subnet}
         }
-    }, function (err, data) {
-        onQueryResponse(err, data);
-    });
+    }, onQueryResponse);
 };
 
 exports.queryCopyConfigurationBySubnetAndId = function (subnet, id, onQueryResponse) {
@@ -275,9 +245,7 @@ exports.queryCopyConfigurationBySubnetAndId = function (subnet, id, onQueryRespo
             ":subnet": {S: subnet},
             ":id": {S: id}
         }
-    }, function (err, data) {
-        onQueryResponse(err, data);
-    });
+    }, onQueryResponse);
 };
 
 exports.createCopyConfiguration = function (userUuid, subnet, source, target, id, onCreateResponse) {
@@ -294,9 +262,7 @@ exports.createCopyConfiguration = function (userUuid, subnet, source, target, id
         }
     };
 
-    copy_configuration_table.putItem(item, function (err, data) {
-        onCreateResponse(err, data);
-    });
+    copy_configuration_table.putItem(item, onCreateResponse);
 };
 
 exports.updateCopyConfiguration = function (userUuid, subnet, id, status, onUpdateResponse) {
@@ -313,9 +279,7 @@ exports.updateCopyConfiguration = function (userUuid, subnet, id, status, onUpda
             ":copy_status": {S: status},
             ":id": {S: id}
         }
-    }, function (err, data) {
-        onUpdateResponse(err, data);
-    });
+    }, onUpdateResponse);
 };
 ///// END COPY CONFIGURATION /////
 

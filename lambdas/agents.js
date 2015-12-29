@@ -3,8 +3,6 @@ var AWS = require('aws-sdk');
 var async = require('async');
 var http = require('https');
 
-var sns_topic = 'arn:aws:sns:us-west-2:718273455463:occmservice';
-
 // Returns/creates user's agents
 //
 // GET mode
@@ -97,7 +95,7 @@ exports.handler = function (event, context) {
                         StackName: name + new Date().getTime(),
                         TemplateBody: cfTemplate,
                         Capabilities: ['CAPABILITY_IAM'],
-                        NotificationARNs: [sns_topic],
+                        NotificationARNs: [common.sns_topic],
                         Parameters: [
                             {
                                 ParameterKey: 'VpcId',

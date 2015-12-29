@@ -1,7 +1,6 @@
 var common = require('./common');
 var AWS = require('aws-sdk');
 
-var sns_topic = 'arn:aws:sns:us-west-2:718273455463:occmservice';
 // Returns specific cluster exports
 //
 // GET mode
@@ -36,7 +35,7 @@ exports.handler = function (event, context) {
                             var awsAccessKey = userData.Items[0].aws_access_key.S;
                             var awsSecretKey = userData.Items[0].aws_secret_key.S;
                             //TODO - username/password and sns should be parameters to the lambda
-                            var command = '/opt/NetApp/s3sync/agent/scripts/find-exports.py --address ' + event['cluster-mgmt-ip'] + ' --user admin --password Netapp234 --sns-topic ' + sns_topic;
+                            var command = '/opt/NetApp/s3sync/agent/scripts/find-exports.py --address ' + event['cluster-mgmt-ip'] + ' --user admin --password Netapp234 --sns-topic ' + common.sns_topic;
                             common.executeCommand(event.region, instance, awsAccessKey, awsSecretKey, 'Export', command, function (err, data) {
                                 if (err) {
                                     context.fail({
