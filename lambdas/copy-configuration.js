@@ -31,7 +31,17 @@ exports.handler = function (event, context) {
                         message: 'Failed to query copy configuration by user uuid ' + userUuid + ' , ' + err
                     }));
                 } else {
-                    context.done(null, data.Items);
+                    var results = [];
+                    data.Items.map(function (item) {
+                        results.push({
+                            id: item.id.S,
+                            status: item.copy_status.S,
+                            source: item.source.S,
+                            target: item.target.S
+                        });
+                    });
+
+                    context.done(null, results);
                 }
             });
             break;

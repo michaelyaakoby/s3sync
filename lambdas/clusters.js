@@ -31,7 +31,16 @@ exports.handler = function (event, context) {
                         message: 'Failed to query cluster by user uuid ' + userUuid + ' , ' + err
                     }));
                 } else {
-                    context.done(null, data.Items);
+                    var clusters = [];
+                    data.Items.map(function (cluster) {
+                        clusters.push({
+                            'cluster-ip': cluster.cluster_ip.S,
+                            subnet: cluster.subnet.S
+
+                        });
+                    });
+
+                    context.done(null, clusters);
                 }
             });
             break;

@@ -27,13 +27,21 @@ exports.handler = function (event, context) {
     switch (event['http-method']) {
         case 'GET':
             common.queryAgentByUserUuidAndSubnet(userUuid, event.subnet, function (err, data) {
-                if(err){
+                if (err) {
                     context.fail(JSON.stringify({
                         code: 'Error',
                         message: 'Failed to query agent by subnet ' + event.subnet + ' , ' + err
                     }));
-                }else{
-                    context.done(null, data.Items);
+                } else {
+                    var agents = [];
+                    data.Items.map(function (agent) {
+                        agents.push({
+                            instance: agent.instance.S,
+                            'agent-status': agent.agent_status.S
+                        });
+                    });
+
+                    context.done(null, agents);
                 }
             });
             break;
@@ -54,7 +62,7 @@ exports.handler = function (event, context) {
                     });
                 },
 
-                function(name, awsAccessKey, awsSecretKey, callback){
+                function (name, awsAccessKey, awsSecretKey, callback) {
                     // #2- read CF template from github
                     var options = {
                         method: 'GET',
@@ -63,7 +71,7 @@ exports.handler = function (event, context) {
                         path: '/michaelyaakoby/s3sync/master/agent/s3sync-template.json'
                     };
 
-                    http.request(options, function(response){
+                    http.request(options, function (response) {
                         var str = '';
 
                         response.on('data', function (chunk) {
