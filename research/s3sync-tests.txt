@@ -1,3 +1,32 @@
+XCP
+====
+mkdir /catalog
+echo "/catalog localhost(rw,no_root_squash,async)" > /etc/exports
+systemctl enable rpcbind
+systemctl start rpcbind
+systemctl enable nfs.service
+systemctl start nfs.service
+
+yum install -y lrzsz
+tar xzvf xcp-*.tgz
+ln -s `pwd`/xcp-*/linux/xcp /usr/bin/xcp
+cp xcp-license.xwic /opt/NetApp/xFiles/xcp/license
+
+xcp activate
+sed -i 's/^catalog.*/catalog = localhost:\/catalog/' /opt/NetApp/xFiles/xcp/xcp.ini
+
+xcp copy localhost:/var s3:/ontap-sync/var
+
+xcp copy -newid data1 localhost:/home/ec2-user/data/ s3:/ontap-sync/data
+xcp sync -id data1
+
+-=-=-=-=-=-=-=-=
+mkdir data
+echo "/catalog localhost(rw,no_root_squash,async)" > /etc/exports
+
+base64 /dev/urandom | head -c 1000000000 > 1g.dat
+-=-=-=-=-=-=-=-=
+
 /opt/NetApp/s3sync/agent/scripts/copy-to-s3.py  -s nfs://10.60.18.45/data -t s3://ontap-sync/data/ -c kukipuki -n arn:aws:sns:us-west-2:464262061435:copy1 
 
 Using s3utils
