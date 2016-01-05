@@ -32,7 +32,6 @@ exports.handler = function (event, context) {
                             message: 'Failed to describe key pairs for uuid ' + userUuid + ' , ' + err
                         }));
                     } else {
-                        console.log("kkkkk", JSON.stringify(data.KeyPairs, null, 2));
                         var keyPairs = Object.keys(data.KeyPairs).map(function (key) {
                             return data.KeyPairs[key];
                         });
