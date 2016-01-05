@@ -35,8 +35,8 @@ exports.handler = function (event, context) {
                     data.Items.map(function (cluster) {
                         clusters.push({
                             'cluster-ip': cluster.cluster_ip.S,
-                            subnet: cluster.subnet.S
-
+                            subnet: cluster.subnet.S,
+                            region: cluster.region.S
                         });
                     });
 
