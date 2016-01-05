@@ -21,8 +21,9 @@ xcp copy -newid data1 localhost:/home/ec2-user/data/ s3:/ontap-sync/data
 xcp sync -id data1
 
 -=-=-=-=-=-=-=-=
-mkdir data
-echo "/catalog localhost(rw,no_root_squash,async)" > /etc/exports
+echo "/ localhost(ro,no_root_squash,async)" > /etc/exports
+exportfs -a
+xcp copy -newid etc1 localhost:/etc s3://ontap-sync/etc
 
 base64 /dev/urandom | head -c 1000000000 > 1g.dat
 -=-=-=-=-=-=-=-=

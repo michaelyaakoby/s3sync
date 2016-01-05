@@ -5,7 +5,6 @@ import sys
 import getopt
 import metadata
 import re
-import tempfile
 
 def usage():
   print "Usage: " + sys.argv[0] + " --copy-id <copy-session-id> --source-nfs-url <nfs://source-ip/path> --target-s3-url <s3://bucket/path> [--refresh] [--sns-topic <sns-topic-arn>]"
@@ -36,20 +35,12 @@ if sourceNfsUrl is None or targetS3Url is None or copyId is None:
 
 nfsPattern = re.compile('nfs://([^/]+)(.*)')
 (nfsAddress, nfsPath) = nfsPattern.match(sourceNfsUrl).groups()
-nfsSource = nfsAddress + ":" + nfsPath 
+nfsSource = nfsAddress + ":" + nfsPath
 print "NFS Source: " + nfsSource
 
-mountDir = tempfile.mkdtemp(dir = "/tmp")
-os.system("mount " + nfsSource + " " + mountDir + " -o nolock")
-print "Mounted on: " + mountDir
-
 print "Starting to copy to: " + targetS3Url
-os.system("s3cmd sync " + mountDir + " " + targetS3Url + " --exclude '.snapshot/*'")
+os.system("xcp copy -newid " + copyId + " " + nfsSource + " " + targetS3Url)
 print "Copy completed"
-
-os.system("umount " + mountDir)
-os.rmdir(mountDir)
-print "Unmounted from: " + mountDir
 
 if snsTopic is not None:
   os.system("aws sns publish --region " + metadata.region + " --topic-arn " + snsTopic + " --subject copy-to-s3 --message '{\"copy-id\": \"" + copyId + "\", \"instance-id\": \"" + metadata.instanceId + "\", \"subnet-id\": \"" + metadata.subnet +"\", \"copy-completed\": { \"source\": \"" + sourceNfsUrl + "\", \"destination\": \"" + targetS3Url + "\" }}'")
