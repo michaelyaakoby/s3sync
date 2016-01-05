@@ -16,7 +16,6 @@ var http = require('https');
 // http-method
 // user-uuid
 // region
-// vpc
 // subnet
 // keypair
 exports.handler = function (event, context) {
@@ -62,8 +61,33 @@ exports.handler = function (event, context) {
                     });
                 },
 
-                function (name, awsAccessKey, awsSecretKey, callback) {
-                    // #2- read CF template from github
+                function(name, awsAccessKey, awsSecretKey, callback){
+                    // #2 - get subnet's VPC
+                    var options = {
+                        accessKeyId: awsAccessKey,
+                        secretAccessKey: awsSecretKey,
+                        region: event.region
+                    };
+
+                    var ec2 = new AWS.EC2(options);
+                    ec2.describeSubnets({
+                        SubnetIds: [event.subnet]
+                    }, function(err, data) {
+                        if (err){
+                            common.errorHandler(callback, 'Failed to describe subnets for user uuid ' + userUuid + ', ' + err);
+                        }else{
+                            if(data.Subnets.length === 1){
+                                var vpcId = data.Subnets[0].VpcId;
+                                callback(null, name, awsAccessKey, awsSecretKey, vpcId);
+                            }else{
+                                common.errorHandler(callback, 'Failed to describe subnet by id ' + event.subnet + ', ' + err);
+                            }
+                        }
+                    });
+                },
+
+                function (name, awsAccessKey, awsSecretKey, vpcId, callback) {
+                    // #3 - read CF template from github
                     var options = {
                         method: 'GET',
                         host: 'raw.githubusercontent.com',
@@ -79,13 +103,13 @@ exports.handler = function (event, context) {
                         });
 
                         response.on('end', function () {
-                            callback(null, name, awsAccessKey, awsSecretKey, str);
+                            callback(null, name, awsAccessKey, awsSecretKey, vpcId, str);
                         });
                     }).end();
                 },
 
-                function (name, awsAccessKey, awsSecretKey, cfTemplate, callback) {
-                    // #3 - create CF in user's account
+                function (name, awsAccessKey, awsSecretKey, vpcId, cfTemplate, callback) {
+                    // #4 - create CF in user's account
                     var options = {
                         region: event.region,
                         accessKeyId: awsAccessKey,
@@ -101,7 +125,7 @@ exports.handler = function (event, context) {
                         Parameters: [
                             {
                                 ParameterKey: 'VpcId',
-                                ParameterValue: event.vpc
+                                ParameterValue: vpcId
                             },
                             {
                                 ParameterKey: 'SubnetId',
