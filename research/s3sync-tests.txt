@@ -21,7 +21,7 @@ xcp copy -newid data1 localhost:/home/ec2-user/data/ s3:/ontap-sync/data
 xcp sync -id data1
 
 -=-=-=-=-=-=-=-=
-echo "/ localhost(ro,no_root_squash,async)" > /etc/exports
+echo "/ localhost(ro,no_root_squash,async)" >> /etc/exports
 exportfs -a
 xcp copy -newid etc1 localhost:/etc s3://ontap-sync/etc
 
