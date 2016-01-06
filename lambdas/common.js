@@ -1,18 +1,47 @@
 var AWS = require('aws-sdk');
+var Promise = require("bluebird");
 
 exports.sns_topic = 'arn:aws:sns:us-west-2:718273455463:occmservice';
 
 ///// USERS /////
 var users_table = new AWS.DynamoDB({params: {TableName: 'users'}});
 
-exports.queryUserByEmail = function (email, onQueryResponse) {
-    console.log('Query table ' + users_table.config.params.TableName + ' by email=' + email);
-    users_table.query({
-        KeyConditionExpression: 'email = :email',
-        ExpressionAttributeValues: {
-            ":email": {S: email}
+var validateAndGetUser = function(uuid) {
+    return exports.queryUserByUuidP(uuid)
+    // #2 - validate user exists
+    .then(function (usersData) {
+        if (!usersData.Count) {
+            throw new Error("Invalid user: " + userUuid, "NotFound");
+        } else {
+            return usersData.Items[0];
         }
-    }, onQueryResponse);
+    })
+};
+exports.validateAndGetUser = validateAndGetUser;
+
+exports.queryUserByEmail = function (email) {
+    return promisify(
+        'Query table ' + users_table.config.params.TableName + ' by email=' + email,
+        users_table.query.bind(users_table, {
+            KeyConditionExpression: 'email = :email',
+            ExpressionAttributeValues: {
+                ":email": {S: email}
+            }
+        })
+    )
+};
+
+exports.queryUserByUuidP = function (user_uuid) {
+    return promisify(
+        'Query table ' + users_table.config.params.TableName + ' by uuid=' + user_uuid,
+        users_table.query.bind(users_table, {
+            IndexName: 'user_uuid-index',
+            KeyConditionExpression: 'user_uuid = :user_uuid',
+            ExpressionAttributeValues: {
+                ":user_uuid": {S: user_uuid}
+            }
+        })
+    );
 };
 
 exports.queryUserByUuid = function (user_uuid, onQueryResponse) {
@@ -26,22 +55,20 @@ exports.queryUserByUuid = function (user_uuid, onQueryResponse) {
     }, onQueryResponse);
 };
 
-
-exports.createUser = function (user_uuid, email, password, name, awsAccessKey, awsSecretKey, onCreateResponse) {
-    console.log('Put item in table ' + users_table.config.params.TableName + ' - uuid=' + user_uuid + ', email=' + email + ', password=' + password + ', name=' + name + ', aws access key=' + awsAccessKey + ', aws secret key=' + awsSecretKey);
-
-    var item = {
-        Item: {
-            user_uuid: {S: user_uuid},
-            email: {S: email},
-            password: {S: password},
-            name: {S: name},
-            aws_access_key: {S: awsAccessKey},
-            aws_secret_key: {S: awsSecretKey}
-        }
-    };
-
-    users_table.putItem(item, onCreateResponse);
+exports.createUser = function (user_uuid, email, password, name, awsAccessKey, awsSecretKey) {
+    return promisify(
+        'Put item in table ' + users_table.config.params.TableName + ' - uuid=' + user_uuid + ', email=' + email + ', password=' + password + ', name=' + name + ', aws access key=' + awsAccessKey + ', aws secret key=' + awsSecretKey,
+        users_table.putItem.bind(users_table, {
+            Item: {
+                user_uuid: {S: user_uuid},
+                email: {S: email},
+                password: {S: password},
+                name: {S: name},
+                aws_access_key: {S: awsAccessKey},
+                aws_secret_key: {S: awsSecretKey}
+            }
+        })
+    );
 };
 
 exports.updateUserAwsCredentials = function (email, awsAccessKey, awsSecretKey, onUpdateResponse) {
@@ -64,14 +91,16 @@ exports.updateUserAwsCredentials = function (email, awsAccessKey, awsSecretKey, 
 ///// CLUSTERS /////
 var clusters_table = new AWS.DynamoDB({params: {TableName: 'clusters'}});
 
-exports.queryClustersByUserUuid = function (userUuid, onQueryResponse) {
-    console.log('Query table ' + clusters_table.config.params.TableName + ' by user uuid=' + userUuid);
-    clusters_table.query({
-        KeyConditionExpression: 'user_uuid = :user_uuid',
-        ExpressionAttributeValues: {
-            ":user_uuid": {S: userUuid}
-        }
-    }, onQueryResponse);
+exports.queryClustersByUserUuid = function (userUuid) {
+    return promisify(
+        'Query table ' + clusters_table.config.params.TableName + ' by user uuid=' + userUuid,
+        clusters_table.query.bind(clusters_table, {
+            KeyConditionExpression: 'user_uuid = :user_uuid',
+            ExpressionAttributeValues: {
+                ":user_uuid": {S: userUuid}
+            }
+        })
+    );
 };
 
 exports.queryClustersBySubnetAndIp = function (subnet, clusterIp, onQueryResponse) {
@@ -85,23 +114,22 @@ exports.queryClustersBySubnetAndIp = function (subnet, clusterIp, onQueryRespons
     }, onQueryResponse);
 };
 
-exports.createCluster = function (userUuid, region, vpc, subnet, clusterIp, userName, password, onCreateResponse) {
-    console.log('Put item in table ' + clusters_table.config.params.TableName + ' - user uuid=' + userUuid + ', region=' + region + ', vpc=' + vpc + ', subnet=' + subnet + ', cluster ip=' + clusterIp + ', user name=' + userName + ', password=' + password);
-
-    var item = {
-        Item: {
-            user_uuid: {S: userUuid},
-            subnet_mgmt_ip: {S: subnet + ':' + clusterIp},
-            region: {S: region},
-            vpc: {S: vpc},
-            subnet: {S: subnet},
-            cluster_ip: {S: clusterIp},
-            user_name: {S: userName},
-            password: {S: password}
-        }
-    };
-
-    clusters_table.putItem(item, onCreateResponse);
+exports.createCluster = function (userUuid, region, vpc, subnet, clusterIp, userName, password) {
+    return promisify(
+        'Put item in table ' + clusters_table.config.params.TableName + ' - user uuid=' + userUuid + ', region=' + region + ', vpc=' + vpc + ', subnet=' + subnet + ', cluster ip=' + clusterIp + ', user name=' + userName + ', password=' + password,
+        clusters_table.putItem.bind(clusters_table, {
+            Item: {
+                user_uuid: {S: userUuid},
+                subnet_mgmt_ip: {S: subnet + ':' + clusterIp},
+                region: {S: region},
+                vpc: {S: vpc},
+                subnet: {S: subnet},
+                cluster_ip: {S: clusterIp},
+                user_name: {S: userName},
+                password: {S: password}
+            }
+        })
+    );
 };
 ///// END CLUSTERS /////
 
@@ -122,6 +150,19 @@ exports.createAgent = function (userUuid, region, vpc, subnet, onCreateResponse)
     };
 
     agents_table.putItem(item, onCreateResponse);
+};
+
+exports.queryAgentByUserUuidAndSubnetP = function (userUuid, subnet) {
+    return promisify(
+        'Query table ' + agents_table.config.params.TableName + ' by user uuid=' + userUuid + ', subnet=' + subnet,
+        agents_table.query.bind(agents_table, {
+            KeyConditionExpression: 'user_uuid = :user_uuid AND subnet = :subnet',
+            ExpressionAttributeValues: {
+                ":user_uuid": {S: userUuid},
+                ":subnet": {S: subnet}
+            }
+        })
+    );
 };
 
 exports.queryAgentByUserUuidAndSubnet = function (userUuid, subnet, onQueryResponse) {
@@ -285,6 +326,58 @@ exports.updateCopyConfiguration = function (userUuid, subnet, id, status, onUpda
 
 
 ///// UTILS /////
+function promisify(msg, fn, code) {
+    console.log(msg);
+    return new Promise(function (resolve, reject) {
+        fn(function(err, data) {
+            if (err) {
+                var errMsg = 'Failed ' + msg + ': ' + err;
+                console.log(errMsg);
+                reject(toError(errMsg, code))
+            } else {
+                console.log('Succeeded ' + msg + ': ' + JSON.stringify(data, null, 2));
+                resolve(data);
+            }
+        });
+    });
+}
+
+function toError(msg, code) {
+    return JSON.stringify({
+        code: code || 'Error',
+        message: msg
+    });
+}
+exports.toError = toError;
+
+exports.eventHandler = function(action, errorHandler) {
+    return function (event, context) {
+        console.log('Handling event: ', JSON.stringify(event));
+        var initialPromise;
+        if (action.length == 1) {
+            initialPromise = action(event);
+        } else {
+            var userUuid = event['user-uuid'];
+            initialPromise = validateAndGetUser(userUuid).then(function (user) { action(event, user) })
+        }
+        initialPromise
+        .then(function (data) {
+            console.log('Succeeded with response: ' + JSON.stringify(data));
+            context.done(null, data);
+        })
+        .catch(function (err) {
+            var finalError;
+            if (errorHandler) {
+                console.log('Failed with error: ' + err);
+                finalError = errorHandler(err);
+            } else {
+                finalError = toError(err)
+            }
+            console.log('Failed with response: ' + finalError);
+            context.fail(finalError);
+        });
+    };
+};
 
 exports.errorHandler = function (callback, msg) {
     var error = {

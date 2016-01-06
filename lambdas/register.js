@@ -1,5 +1,4 @@
 var common = require('./common');
-var async = require('async');
 
 // Registers new user in the system, throws error if provided email exists in DB
 //
@@ -9,47 +8,26 @@ var async = require('async');
 // name
 // aws-access-key
 // aws-secret-key
-exports.handler = function (event, context) {
-    console.log('Received event:', JSON.stringify(event, null, 2));
+exports.handler = common.eventHandler(
+    function (event) {
+        // #1 - query existing user by email
+        return common.queryUserByEmail(event.email)
 
-    async.waterfall([
-            function (callback) {
-                // #1 - check if the email is not already registered
-                common.queryUserByEmail(event.email, function (err, data) {
-                    if (err) {
-                        common.errorHandler(callback, 'Failed to query user by email ' + event.email + ' , ' + err);
-                    } else {
-                        if (data.Count === 0) {
-                            // continue to register step
-                            callback(null);
-                        } else {
-                            // provided email is already in the DB
-                            common.errorHandler(callback, 'User with email ' + event.email + ' is already registered');
-                        }
-                    }
-                });
-            },
-
-            function (callback) {
-                // #2 - register new user
-                var uuid = common.uuid();
-                common.createUser(uuid, event.email, event.password, event.name, event['aws-access-key'], event['aws-secret-key'], function (err, data) {
-                    if (err) {
-                        common.errorHandler(callback, 'Failed to create user with email ' + event.email + ' , ' + err);
-                    } else {
-                        callback(null, uuid);
-                    }
-                });
+        // #2 - validate email is not already in use
+        .then(function (data) {
+            if (data.Count) {
+                throw new Error('Email ' + event.email + ' already registered');
             }
-        ],
+        })
 
-        function (err, uuid) {
-            if (err) {
-                context.fail(JSON.stringify(err));
-            } else {
-                context.done(null, {"uuid": uuid});
-            }
-        }
-    );
-};
+        // #3 - register new user and return its UUID
+        .then(function () {
+            var uuid = common.uuid();
+            return common.createUser(uuid, event.email, event.password, event.name, event['aws-access-key'], event['aws-secret-key'])
+                .then(function () {
+                    return {uuid: uuid};
+                });
+        });
+    }
+);
 
