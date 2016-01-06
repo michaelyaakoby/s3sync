@@ -47,4 +47,4 @@ print("size-in-bytes: " + totalSpace)
 print("count: " + totalCount)
 
 if snsTopic is not None:
-  os.system("aws sns publish --region " + metadata.region + " --topic-arn " + snsTopic + " --subject measure-export --message '{\"request-id\": \"" + requestId + "\", \"instance-id\": \"" + metadata.instanceId + "\", \"subnet-id\": \"" + metadata.subnet +"\", \"copy-completed\": { \"total-file-and-dirs-count\": \"" + totalCount + "\", \"total-size-in-bytes\": \"" + totalSpace + "\" }}'")
+  os.system("aws sns publish --region " + metadata.region + " --topic-arn " + snsTopic + " --subject measure-export --message '{\"request-id\": \"" + requestId + "\", \"instance-id\": \"" + metadata.instanceId + "\", \"subnet-id\": \"" + metadata.subnet +"\", \"measure-export\": { \"total-file-and-dirs-count\": \"" + totalCount + "\", \"total-size-in-bytes\": \"" + totalSpace + "\" }}'")
