@@ -7,7 +7,7 @@ import metadata
 import re
 
 def usage():
-  print "Usage: " + sys.argv[0] + " --request-id <request-id> --nfs-url <nfs://source-ip/path> [--sns-topic <sns-topic-arn>]"
+  print "Usage: " + sys.argv[0] + " --nfs-url <nfs://source-ip/path> [--request-id <request-id> --sns-topic <sns-topic-arn>]"
   sys.exit(2)
 
 try:
