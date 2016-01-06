@@ -222,7 +222,7 @@
                                 "",
                                 "# Install and activate XCP",
                                 "aws s3 cp --region us-west-2 s3://repo.datafabric.io/xcp/xcp-license.xwic .",
-                                "aws s3 cp --region us-west-2 s3://repo.datafabric.io/xcp/xcp-1.1-3fdd33a_4_Jan_2016-s3-experimental-build-4.tgz .",
+                                "aws s3 cp --region us-west-2 s3://repo.datafabric.io/xcp/xcp-1.1-4b4038d_6_Jan_2016-s3-experimental-build-5.tgz .",
                                 "tar xzvf xcp-*.tgz",
                                 "ln -s `pwd`/xcp-*/linux/xcp /usr/bin/xcp",
                                 "mkdir -p /opt/NetApp/xFiles/xcp",
