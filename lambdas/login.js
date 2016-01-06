@@ -4,32 +4,34 @@ var common = require('./common');
 // receives the following parameters:
 // email
 // password
-exports.handler = function (event, context) {
-    console.log('Received event:', JSON.stringify(event, null, 2));
+exports.handler = common.eventHandler(
+    function (event) {
+        // #1 - query the user by email
+        return common.queryUserByEmail(event.email)
 
-    common.queryUserByEmail(event.email, function (err, data) {
-        if (err) {
-            context.fail(JSON.stringify({
-                code: 'Error',
-                message: 'Failed to query user by email ' + event.email + ' , ' + err
-            }));
-        } else {
-            if (data.Count === 0) {
-                // user not found
-                context.fail(JSON.stringify(unauthorizedError));
-            } else if (data.Count === 1) {
-                // provided email is already in the DB - compare passwords
-                if (data.Items[0].password.S === event.password) {
-                    context.done(null, {uuid: data.Items[0].user_uuid.S});
-                } else {
-                    context.fail(JSON.stringify(unauthorizedError));
-                }
+        // #2 - validate user found
+        .then(function (data) {
+            if (!data.Count) {
+                throw new Error('User ' + event.email + ' not found!');
+            } else {
+                return data.Items[0];
             }
-        }
-    });
-};
+        })
 
-var unauthorizedError = {
-    code: 'Unauthorized',
-    message: 'Wrong email/password combination'
-};
+        // #3 - match passed password and return user's uuid or fail
+        .then(function (user) {
+            if (user.password.S != event.password) {
+                throw new Error('User ' + event.email + ' provided invalid password!');
+            } else {
+                return {uuid: user.user_uuid.S};
+            }
+        });
+    },
+    // error converter
+    function (err) {
+        return JSON.stringify({
+            code: 'Unauthorized',
+            message: 'Invalid credentials'
+        });
+    }
+);

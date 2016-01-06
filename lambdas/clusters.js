@@ -18,19 +18,17 @@ var AWS = require('aws-sdk');
 // cluster-mgmt-ip
 // user-name
 // password
-exports.handler = function (event, context) {
-    console.log('Received event:', JSON.stringify(event, null, 2));
+exports.handler = common.eventHandler(
+    function (event, user) {
+        var userUuid = event['user-uuid'];
 
-    var userUuid = event['user-uuid'];
-    switch (event['http-method']) {
-        case 'GET':
-            common.queryClustersByUserUuid(userUuid, function (err, data) {
-                if (err) {
-                    context.fail(JSON.stringify({
-                        code: 'Error',
-                        message: 'Failed to query cluster by user uuid ' + userUuid + ' , ' + err
-                    }));
-                } else {
+        switch (event['http-method']) {
+            case 'GET':
+                // #1 - query for clusters by user's uuid
+                return common.queryClustersByUserUuid(userUuid)
+
+                // #2 - parse the saved clusters and return them
+                .then(function (data) {
                     var clusters = [];
                     data.Items.map(function (cluster) {
                         clusters.push({
@@ -39,25 +37,18 @@ exports.handler = function (event, context) {
                             region: cluster.region.S
                         });
                     });
+                    return clusters;
+                });
+                break;
 
-                    context.done(null, clusters);
-                }
-            });
-            break;
-        case 'POST':
-            common.createCluster(userUuid, event.region, event.vpc, event.subnet, event['cluster-mgmt-ip'], event['user-name'], event.password, function (err, data) {
-                if (err) {
-                    context.fail(JSON.stringify({
-                        code: 'Error',
-                        message: 'Failed to create cluster with user uuid ' + userUuid + ' , ' + err
-                    }));
-                } else {
-                    context.done();
-                }
-            });
-            break;
+            case 'POST':
+                // #1 - create cluster for user
+                return common.createCluster(userUuid, event.region, event.vpc, event.subnet, event['cluster-mgmt-ip'], event['user-name'], event.password);
+                break;
+
+        }
     }
-};
+);
 
 
 

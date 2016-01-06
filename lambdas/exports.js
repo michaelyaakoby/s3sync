@@ -10,6 +10,25 @@ var AWS = require('aws-sdk');
 // region
 // subnet
 // cluster-mgmt-ip
+/*
+exports.handler = common.eventHandler(
+    function(event, user) {
+        var userUuid = event['user-uuid'];
+
+        // #1 - query the user by uuid
+        return common.queryAgentByUserUuidAndSubnetP(userUuid, event.subnet)
+
+        // #2 - validate agent exists
+        .then(function (agents) {
+            if (!agents.Count || !agents.Items[0].instance) {
+                throw new Error()
+            } else {
+
+            }
+        })
+    }
+);
+*/
 exports.handler = function (event, context) {
     console.log('Received event:', JSON.stringify(event, null, 2));
 
