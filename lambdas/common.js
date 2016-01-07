@@ -1,5 +1,6 @@
 var AWS = require('aws-sdk');
-var Promise = require("bluebird");
+var Promise = require('bluebird');
+var http = require('https');
 
 exports.sns_topic = 'arn:aws:sns:us-west-2:718273455463:occmservice';
 
@@ -71,19 +72,20 @@ exports.createUser = function (user_uuid, email, password, name, awsAccessKey, a
     );
 };
 
-exports.updateUserAwsCredentials = function (email, awsAccessKey, awsSecretKey, onUpdateResponse) {
-    console.log('Update item in table ' + users_table.config.params.TableName + ' - email=' + email + ', aws access key=' + awsAccessKey + ', aws secret key=' + awsSecretKey);
-
-    users_table.updateItem({
-        "Key": {
-            "email": {S: email}
-        },
-        "UpdateExpression": "SET aws_access_key = :aws_access_key, aws_secret_key = :aws_secret_key",
-        "ExpressionAttributeValues": {
-            ":aws_access_key": {S: awsAccessKey},
-            ":aws_secret_key": {S: awsSecretKey}
-        }
-    }, onUpdateResponse);
+exports.updateUserAwsCredentials = function (email, awsAccessKey, awsSecretKey) {
+    return promisify(
+        'Update item in table ' + users_table.config.params.TableName + ' - email=' + email + ', aws access key=' + awsAccessKey + ', aws secret key=' + awsSecretKey,
+        users_table.updateItem.bind(users_table, {
+            "Key": {
+                "email": {S: email}
+            },
+            "UpdateExpression": "SET aws_access_key = :aws_access_key, aws_secret_key = :aws_secret_key",
+            "ExpressionAttributeValues": {
+                ":aws_access_key": {S: awsAccessKey},
+                ":aws_secret_key": {S: awsSecretKey}
+            }
+        })
+    );
 };
 
 ///// END USERS /////
@@ -210,16 +212,17 @@ exports.updateAgent = function (userUuid, subnet, instance, status, onUpdateResp
 ///// EXPORTS /////
 var exports_table = new AWS.DynamoDB({params: {TableName: 'exports'}});
 
-exports.queryExportsByUserUuidAndSubnetAndIp = function (userUuid, subnet, clusterIp, onQueryResponse) {
-    console.log('Query table ' + exports_table.config.params.TableName + ' by user uuid=' + userUuid + ', subnet=' + subnet + ', cluster ip=' + clusterIp);
-
-    exports_table.query({
-        KeyConditionExpression: 'user_uuid = :user_uuid AND subnet_mgmt_ip = :subnet_mgmt_ip',
-        ExpressionAttributeValues: {
-            ":user_uuid": {S: userUuid},
-            ":subnet_mgmt_ip": {S: subnet + ':' + clusterIp}
-        }
-    }, onQueryResponse);
+exports.queryExportsByUserUuidAndSubnetAndIp = function (userUuid, subnet, clusterIp) {
+    return promisify(
+        'Query table ' + exports_table.config.params.TableName + ' by user uuid=' + userUuid + ', subnet=' + subnet + ', cluster ip=' + clusterIp,
+        exports_table.query.bind(exports_table, {
+            KeyConditionExpression: 'user_uuid = :user_uuid AND subnet_mgmt_ip = :subnet_mgmt_ip',
+            ExpressionAttributeValues: {
+                ":user_uuid": {S: userUuid},
+                ":subnet_mgmt_ip": {S: subnet + ':' + clusterIp}
+            }
+        })
+    );
 };
 
 exports.queryExportsBySubnetAndIp = function (subnet, clusterIp, onQueryResponse) {
@@ -333,6 +336,13 @@ function UnauthorizedError() {
 UnauthorizedError.prototype = new Error();
 exports.UnauthorizedError = UnauthorizedError;
 
+function NotFoundError(message) {
+    this.name = 'Not Found';
+    this.message = message;
+}
+NotFoundError.prototype = new Error();
+exports.NotFoundError = NotFoundError;
+
 function BadRequestError(message) {
     this.name = 'Bad Request';
     this.message = message;
@@ -409,6 +419,64 @@ exports.uuid = function () {
 ///// END UTILS /////
 
 ///// EXECUTE SSM COMMAND /////
+exports.executeCommandP = function (region, instance, awsAccessKey, awsSecretKey, commandName, command) {
+    var ssm = new AWS.SSM({
+        region: region,
+        accessKeyId: awsAccessKey,
+        secretAccessKey: awsSecretKey
+    });
+    var documentName = commandName + '_' + new Date().getTime();
+    var documentContent = {
+        schemaVersion: '1.2',
+        description: commandName,
+        parameters: {},
+        runtimeConfig: {
+            "aws:runShellScript": {
+                properties: [{
+                    id: '0.aws:runShellScript',
+                    runCommand: [command]
+                }]
+            }
+        }
+    };
+
+    // #1 create the SSM document
+    return promisify(
+        'Create command document - region=' + region + ', instance=' + instance + ', aws access key=' + awsAccessKey + ', aws secret key=' + awsSecretKey + ', command name=' + commandName + ', command=' + command,
+        ssm.createDocument.bind(ssm, {
+            Name: documentName,
+            Content: JSON.stringify(documentContent)
+        })
+    )
+        // #2 execute the SSM document
+        .then(function(data) {
+            return promisify(
+                'Send command document - region=' + region + ', instance=' + instance + ', aws access key=' + awsAccessKey + ', aws secret key=' + awsSecretKey + ', command name=' + commandName + ', command=' + command,
+                ssm.sendCommand.bind(ssm, {
+                    DocumentName: documentName,
+                    InstanceIds: [instance]
+                })
+            );
+        })
+
+        // #3 delete the SSM document and return the execute command result
+        .then(function(executeCommandData) {
+            return promisify(
+                'Delete command document - region=' + region + ', instance=' + instance + ', aws access key=' + awsAccessKey + ', aws secret key=' + awsSecretKey + ', command name=' + commandName + ', command=' + command,
+                ssm.deleteDocument.bind(ssm, {
+                    Name: documentName
+                })
+            )
+                .catch(function (err) {
+                    console.log('recovering from delete command document');
+                    return null;
+                })
+                .then(function (data) {
+                    return executeCommandData;
+                });
+        });
+};
+
 exports.executeCommand = function (region, instance, awsAccessKey, awsSecretKey, commandName, command, onExecuteCommand) {
     console.log('Executing command - region=' + region + ', instance=' + instance + ', aws access key=' + awsAccessKey + ', aws secret key=' + awsSecretKey + ', command name=' + commandName + ', command=' + command);
     var options = {
@@ -482,4 +550,93 @@ exports.executeCommand = function (region, instance, awsAccessKey, awsSecretKey,
 
 };
 ///// END EXECUTE SSM COMMAND /////
+
+///// EC2 DESCRIBE SUBNET /////
+exports.describeSubnet = function(awsAccessKey, awsSecretKey, region, subnet) {
+    var ec2 = new AWS.EC2({
+        accessKeyId: awsAccessKey,
+        secretAccessKey: awsSecretKey,
+        region: region
+    });
+
+    return promisify(
+        'Describe subnet - aws access key=' + awsAccessKey + ', aws secret key=' + awsSecretKey + ', region=' + region + ', subnet=' + subnet,
+        ec2.describeSubnets.bind(ec2, {
+            SubnetIds: [ subnet ]
+        })
+    )
+};
+///// END EC2 DESCRIBE SUBNET /////
+
+///// GET URL CONTENT /////
+exports.getUrlContent = function(host, port, path) {
+    var httpGetWithCallback = function(callback) {
+        var requestOptions = {
+            method: 'GET',
+            host: host,
+            port: port,
+            path: path
+        };
+
+        var requestCallback = function(response) {
+            var str = '';
+
+            response.on('data', function (chunk) {
+                str += chunk;
+            });
+
+            response.on('end', function () {
+                callback(null, str);
+            });
+        };
+
+        var request = http.request(requestOptions, requestCallback);
+
+        request.end();
+
+        request.on('error', function (e) {
+           callback(e);
+        });
+    };
+
+    return promisify(
+        'Get URL Content - host=' + host + ', port=' + port + ', path=' + path,
+        httpGetWithCallback
+    );
+};
+///// END GET URL CONTENT /////
+
+///// CREATE CF STACK /////
+exports.createCFStack = function(awsAccessKey, awsSecretKey, region, vpc, subnet, keypair, name, template) {
+    var cf = new AWS.CloudFormation({
+        region: region,
+        accessKeyId: awsAccessKey,
+        secretAccessKey: awsSecretKey
+    });
+
+    return promisify(
+        'Create CloudFormation Stack - aws access key=' + awsAccessKey + ', aws secret key=' + awsSecretKey + ', region=' + region + +' vpc=' + vpc + ', subnet=' + subnet + ' keypair=' + keypair + ', name=' + name + ', template=\n' + template,
+        cf.createStack.bind(cf, {
+            StackName: name + new Date().getTime(),
+            TemplateBody: template,
+            Capabilities: [ 'CAPABILITY_IAM' ],
+            NotificationARNs: [ exports.sns_topic ],
+            Parameters: [
+                {
+                    ParameterKey: 'VpcId',
+                    ParameterValue: vpc
+                },
+                {
+                    ParameterKey: 'SubnetId',
+                    ParameterValue: subnet
+                },
+                {
+                    ParameterKey: 'KeyPair',
+                    ParameterValue: keypair
+                }
+            ]
+        })
+    );
+};
+///// END CREATE CF STACK /////
 

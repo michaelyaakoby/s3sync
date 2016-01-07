@@ -1,5 +1,4 @@
 var common = require('./common');
-var AWS = require('aws-sdk');
 
 // Returns specific cluster exports
 //
@@ -10,91 +9,50 @@ var AWS = require('aws-sdk');
 // region
 // subnet
 // cluster-mgmt-ip
-/*
 exports.handler = common.eventHandler(
     function(event, user) {
         var userUuid = event['user-uuid'];
 
-        // #1 - query the user by uuid
+        // #1 - query the agent by uuid and subnet
         return common.queryAgentByUserUuidAndSubnetP(userUuid, event.subnet)
 
-        // #2 - validate agent exists
-        .then(function (agents) {
-            if (!agents.Count || !agents.Items[0].instance) {
-                throw new Error()
-            } else {
+            // #2 - validate agent exists and initialized or fail
+            .then(function (agentsData) {
+                if (!agentsData.Count) {
+                    throw new common.NotFoundError('No agent found for user: ' + userUuid + ' and subnet ' + event.subnet);
+                } else if (!agentsData.Items[0].instance || agentsData.Items[0].instance.S == "") {
+                    throw new common.NotFoundError('Agent not initialized for user: ' + userUuid + ' and subnet ' + event.subnet);
+                } else {
+                    return agentsData.Items[0];
+                }
+            })
 
-            }
-        })
+            // #3 issue list exports command
+            .then(function (agent) {
+                var instance = agent.instance.S;
+                var awsAccessKey = user.aws_access_key.S;
+                var awsSecretKey = user.aws_secret_key.S;
+                //TODO - username/password and sns should be parameters to the lambda
+                var command = '/opt/NetApp/s3sync/agent/scripts/find-exports.py --address ' + event['cluster-mgmt-ip'] + ' --user admin --password Netapp234 --sns-topic ' + common.sns_topic;
+                return common.executeCommandP(event.region, instance, awsAccessKey, awsSecretKey, 'Export', command);
+            })
+
+            // #4 query list of exports
+            .then(function (data) {
+                return common.queryExportsByUserUuidAndSubnetAndIp(userUuid, event.subnet, event['cluster-mgmt-ip']);
+            })
+
+            // #5 convert the list of exports to response
+            .then(function (exportsData) {
+                if (!exportsData.Count) {
+                    console.log('No export record in DB for user ' + userUuid + ' and subnet ' + event.subnet);
+                    return [];
+                } else if (!exportsData.Items[0].exports || exportsData.Items[0].exports.S == '') {
+                    console.log('No exports in DB record for user ' + userUuid + ' and subnet ' + event.subnet);
+                    return [];
+                } else {
+                    return exportsData.Items[0].exports.S;
+                }
+            });
     }
 );
-*/
-exports.handler = function (event, context) {
-    console.log('Received event:', JSON.stringify(event, null, 2));
-
-    var userUuid = event['user-uuid'];
-    common.queryUserByUuid(userUuid, function (err, userData) {
-        if (err) {
-            context.fail(JSON.stringify({
-                code: 'Error',
-                message: 'Failed to query user by uuid ' + userUuid + ' , ' + err
-            }));
-        } else {
-            if (userData.Count === 1) {
-                common.queryAgentByUserUuidAndSubnet(userUuid, event.subnet, function (err, agentData) {
-                    if (err) {
-                        context.fail(JSON.stringify({
-                            code: 'Error',
-                            message: 'Failed to query agent by subnet ' + event.subnet + ' , ' + err
-                        }));
-                    } else {
-                        if (agentData.Items[0].instance) {
-
-                            var instance = agentData.Items[0].instance.S;
-                            var awsAccessKey = userData.Items[0].aws_access_key.S;
-                            var awsSecretKey = userData.Items[0].aws_secret_key.S;
-                            //TODO - username/password and sns should be parameters to the lambda
-                            var command = '/opt/NetApp/s3sync/agent/scripts/find-exports.py --address ' + event['cluster-mgmt-ip'] + ' --user admin --password Netapp234 --sns-topic ' + common.sns_topic;
-                            common.executeCommand(event.region, instance, awsAccessKey, awsSecretKey, 'Export', command, function (err, data) {
-                                if (err) {
-                                    context.fail({
-                                        code: 'Error',
-                                        message: 'Failed to execute command for subnet ' + event.subnet + ' , ' + err
-                                    });
-                                } else {
-                                    common.queryExportsByUserUuidAndSubnetAndIp(userUuid, event.subnet, event['cluster-mgmt-ip'], function (err, data) {
-                                        if (err) {
-                                            context.fail({
-                                                code: 'Error',
-                                                message: 'Failed to query exports by subnet ' + event.subnet + ' , ' + err
-                                            });
-                                        } else {
-                                            if (data.Count === 0) {
-                                                context.done(null, []);
-                                            } else if (data.Count === 1) {
-                                                context.done(null, data.Items[0].exports.S);
-                                            } else {
-                                                context.fail({
-                                                    code: 'Error',
-                                                    message: 'Got unexpected number of exports for subnet ' + event.subnet + ' , ' + err
-                                                });
-                                            }
-                                        }
-                                    });
-                                }
-                            });
-                        } else {
-                            // agent is not ready yet
-                            content.done(null, {message: 'agent not ready yet'});
-                        }
-                    }
-                });
-            } else {
-                context.fail(JSON.stringify({
-                    code: 'NotFound',
-                    message: 'Unable to find user by user uuid ' + userUuid
-                }));
-            }
-        }
-    });
-};

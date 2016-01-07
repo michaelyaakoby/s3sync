@@ -1,5 +1,4 @@
 var common = require('./common.js');
-var AWS = require('aws-sdk');
 
 // Returns/created user's clusters
 //
@@ -35,7 +34,7 @@ exports.handler = common.eventHandler(
                                 'cluster-ip': cluster.cluster_ip.S,
                                 subnet: cluster.subnet.S,
                                 region: cluster.region.S,
-                                'cluster_type': cluster.cluster_type.S
+                                'cluster-type': cluster.cluster_type.S
                             });
                         });
                         return clusters;
