@@ -341,7 +341,7 @@ exports.BadRequestError = BadRequestError;
 ///// END ERRORS /////
 
 ///// UTILS /////
-function promisify(msg, fn, code) {
+function promisify(msg, fn) {
     console.log(msg);
     return new Promise(function (resolve, reject) {
         fn(function(err, data) {
@@ -365,7 +365,7 @@ exports.eventHandler = function(action, errorHandler) {
             initialPromise = action(event);
         } else {
             var userUuid = event['user-uuid'];
-            initialPromise = validateAndGetUser(userUuid).then(function (user) { action(event, user); });
+            initialPromise = validateAndGetUser(userUuid).then(function (user) { return action(event, user); });
         }
         initialPromise
         .then(function (data) {

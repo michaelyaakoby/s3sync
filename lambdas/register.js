@@ -13,21 +13,21 @@ exports.handler = common.eventHandler(
         // #1 - query existing user by email
         return common.queryUserByEmail(event.email)
 
-        // #2 - validate email is not already in use
-        .then(function (data) {
-            if (data.Count) {
-                throw new Error('Email ' + event.email + ' already registered');
-            }
-        })
+            // #2 - validate email is not already in use
+            .then(function (data) {
+                if (data.Count) {
+                    throw new Error('Email ' + event.email + ' already registered');
+                }
+            })
 
-        // #3 - register new user and return its UUID
-        .then(function () {
-            var uuid = common.uuid();
-            return common.createUser(uuid, event.email, event.password, event.name, event['aws-access-key'], event['aws-secret-key'])
-                .then(function () {
-                    return {uuid: uuid};
-                });
-        });
+            // #3 - register new user and return its UUID
+            .then(function () {
+                var uuid = common.uuid();
+                return common.createUser(uuid, event.email, event.password, event.name, event['aws-access-key'], event['aws-secret-key'])
+                    .then(function () {
+                        return {uuid: uuid};
+                    });
+            });
     }
 );
 

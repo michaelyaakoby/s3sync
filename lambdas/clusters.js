@@ -27,18 +27,18 @@ exports.handler = common.eventHandler(
                 // #1 - query for clusters by user's uuid
                 return common.queryClustersByUserUuid(userUuid)
 
-                // #2 - parse the saved clusters and return them
-                .then(function (data) {
-                    var clusters = [];
-                    data.Items.map(function (cluster) {
-                        clusters.push({
-                            'cluster-ip': cluster.cluster_ip.S,
-                            subnet: cluster.subnet.S,
-                            region: cluster.region.S
+                    // #2 - parse the saved clusters and return them
+                    .then(function (data) {
+                        var clusters = [];
+                        data.Items.map(function (cluster) {
+                            clusters.push({
+                                'cluster-ip': cluster.cluster_ip.S,
+                                subnet: cluster.subnet.S,
+                                region: cluster.region.S
+                            });
                         });
+                        return clusters;
                     });
-                    return clusters;
-                });
                 break;
 
             case 'POST':
