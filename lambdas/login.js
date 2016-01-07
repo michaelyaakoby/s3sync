@@ -29,6 +29,6 @@ exports.handler = common.eventHandler(
     },
     // error converter
     function (err) {
-        return new exports.UnauthorizedError();
+        return new common.UnauthorizedError();
     }
 );
