@@ -34,7 +34,8 @@ exports.handler = common.eventHandler(
                             clusters.push({
                                 'cluster-ip': cluster.cluster_ip.S,
                                 subnet: cluster.subnet.S,
-                                region: cluster.region.S
+                                region: cluster.region.S,
+                                'cluster_type': cluster.cluster_type.S
                             });
                         });
                         return clusters;

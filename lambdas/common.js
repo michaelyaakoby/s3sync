@@ -114,9 +114,9 @@ exports.queryClustersBySubnetAndIp = function (subnet, clusterIp, onQueryRespons
     }, onQueryResponse);
 };
 
-exports.createCluster = function (userUuid, region, vpc, subnet, clusterIp, userName, password) {
+exports.createCluster = function (userUuid, region, vpc, subnet, clusterIp, userName, password, clusterType) {
     return promisify(
-        'Put item in table ' + clusters_table.config.params.TableName + ' - user uuid=' + userUuid + ', region=' + region + ', vpc=' + vpc + ', subnet=' + subnet + ', cluster ip=' + clusterIp + ', user name=' + userName + ', password=' + password,
+        'Put item in table ' + clusters_table.config.params.TableName + ' - user uuid=' + userUuid + ', region=' + region + ', vpc=' + vpc + ', subnet=' + subnet + ', cluster ip=' + clusterIp + ', user name=' + userName + ', password=' + password + ', cluster type=' + clusterType,
         clusters_table.putItem.bind(clusters_table, {
             Item: {
                 user_uuid: {S: userUuid},
@@ -126,7 +126,8 @@ exports.createCluster = function (userUuid, region, vpc, subnet, clusterIp, user
                 subnet: {S: subnet},
                 cluster_ip: {S: clusterIp},
                 user_name: {S: userName},
-                password: {S: password}
+                password: {S: password},
+                cluster_type: {S: clusterType}
             }
         })
     );
