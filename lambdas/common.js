@@ -11,11 +11,11 @@ var validateAndGetUser = function(uuid) {
     // #2 - validate user exists
     .then(function (usersData) {
         if (!usersData.Count) {
-            throw new Error("Invalid user: " + userUuid, "NotFound");
+            throw new UnauthorizedError();
         } else {
             return usersData.Items[0];
         }
-    })
+    });
 };
 exports.validateAndGetUser = validateAndGetUser;
 
@@ -324,6 +324,21 @@ exports.updateCopyConfiguration = function (userUuid, subnet, id, status, onUpda
 };
 ///// END COPY CONFIGURATION /////
 
+///// ERRORS /////
+function UnauthorizedError() {
+    this.name = 'Unauthorized';
+    this.message = 'Invalid credentials';
+}
+UnauthorizedError.prototype = new Error();
+exports.UnauthorizedError = UnauthorizedError;
+
+function BadRequestError(message) {
+    this.name = 'Bad Request';
+    this.message = message;
+}
+BadRequestError.prototype = new Error();
+exports.BadRequestError = BadRequestError;
+///// END ERRORS /////
 
 ///// UTILS /////
 function promisify(msg, fn, code) {
@@ -333,48 +348,43 @@ function promisify(msg, fn, code) {
             if (err) {
                 var errMsg = 'Failed ' + msg + ': ' + err;
                 console.log(errMsg);
-                reject(toError(errMsg, code))
+                reject(new Error(errMsg))
             } else {
-                console.log('Succeeded ' + msg + ': ' + JSON.stringify(data, null, 2));
+                console.log('Succeeded ' + msg + ': ' + JSON.stringify(data));
                 resolve(data);
             }
         });
     });
 }
 
-function toError(msg, code) {
-    return JSON.stringify({
-        code: code || 'Error',
-        message: msg
-    });
-}
-exports.toError = toError;
-
 exports.eventHandler = function(action, errorHandler) {
     return function (event, context) {
-        console.log('Handling event: ', JSON.stringify(event));
+        console.log('Handling event - ', JSON.stringify(event));
         var initialPromise;
         if (action.length == 1) {
             initialPromise = action(event);
         } else {
             var userUuid = event['user-uuid'];
-            initialPromise = validateAndGetUser(userUuid).then(function (user) { action(event, user) })
+            initialPromise = validateAndGetUser(userUuid).then(function (user) { action(event, user); });
         }
         initialPromise
         .then(function (data) {
-            console.log('Succeeded with response: ' + JSON.stringify(data));
-            context.done(null, data);
+            console.log('Succeeded event handling with response - ' + JSON.stringify(data));
+            context.succeed(data);
         })
         .catch(function (err) {
-            var finalError;
+            console.log('Failed with internal error - ' + err);
             if (errorHandler) {
-                console.log('Failed with error: ' + err);
-                finalError = errorHandler(err);
-            } else {
-                finalError = toError(err)
+                err = errorHandler(err);
             }
-            console.log('Failed with response: ' + finalError);
-            context.fail(finalError);
+            if (err instanceof Error) {
+                err = { code: err.name, message: err.message };
+            } else {
+                err = { code: 'Error', message: err };
+            }
+            err = JSON.stringify(err);
+            console.log('Failed event handling with response - ' + err);
+            context.fail(err);
         });
     };
 };

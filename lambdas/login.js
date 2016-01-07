@@ -29,9 +29,6 @@ exports.handler = common.eventHandler(
     },
     // error converter
     function (err) {
-        return JSON.stringify({
-            code: 'Unauthorized',
-            message: 'Invalid credentials'
-        });
+        return new exports.UnauthorizedError();
     }
 );
