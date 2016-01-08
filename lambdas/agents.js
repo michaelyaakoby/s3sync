@@ -47,7 +47,7 @@ exports.handler = common.eventHandler(
                 var keypair = event.keypair;
 
                 // #1 extract VPC ID for subnet or fail
-                var vpcIdPromise = common.describeSubnet(awsAccessKey, awsSecretKey, region, subnet)
+                var vpcIdPromise = common.describeSubnets(awsAccessKey, awsSecretKey, region, subnet)
                     .then(function (data) {
                         if (data.Subnets.length) {
                             return data.Subnets[0].VpcId;

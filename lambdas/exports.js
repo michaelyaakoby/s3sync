@@ -19,9 +19,9 @@ exports.handler = common.eventHandler(
             // #2 - validate agent exists and initialized or fail
             .then(function (agentsData) {
                 if (!agentsData.Count) {
-                    throw new common.NotFoundError('No agent found for user: ' + userUuid + ' and subnet ' + event.subnet);
-                } else if (!agentsData.Items[0].instance || agentsData.Items[0].instance.S == "") {
-                    throw new common.NotFoundError('Agent not initialized for user: ' + userUuid + ' and subnet ' + event.subnet);
+                    throw new common.NotFoundError('No agent found for user ' + userUuid + ' and subnet ' + event.subnet);
+                } else if (!agentsData.Items[0].instance || !agentsData.Items[0].instance.S || agentsData.Items[0].instance.S == '') {
+                    throw new common.NotReadyError('Agent not initialized for user ' + userUuid + ' and subnet ' + event.subnet);
                 } else {
                     return agentsData.Items[0];
                 }
@@ -47,7 +47,7 @@ exports.handler = common.eventHandler(
                 if (!exportsData.Count) {
                     console.log('No export record in DB for user ' + userUuid + ' and subnet ' + event.subnet);
                     return [];
-                } else if (!exportsData.Items[0].exports || exportsData.Items[0].exports.S == '') {
+                } else if (!exportsData.Items[0].exports || !exportsData.Items[0].exports.S || exportsData.Items[0].exports.S == '') {
                     console.log('No exports in DB record for user ' + userUuid + ' and subnet ' + event.subnet);
                     return [];
                 } else {

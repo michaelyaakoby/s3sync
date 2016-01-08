@@ -1,6 +1,5 @@
 var common = require('./common');
-var AWS = require('aws-sdk');
-var async = require('async');
+var Promise = require('bluebird');
 
 // Returns/created user's copy configuration
 //
@@ -18,89 +17,54 @@ var async = require('async');
 // subnet
 // source
 // target
-exports.handler = function (event, context) {
-    console.log('Received event:', JSON.stringify(event, null, 2));
+exports.handler = common.eventHandler(
+    function (event, user) {
+        var userUuid = event['user-uuid'];
 
-    var userUuid = event['user-uuid'];
-    switch (event['http-method']) {
-        case 'GET':
-            common.queryCopyConfigurationByUserUuidAndSubnet(userUuid, event.subnet, function (err, data) {
-                if (err) {
-                    context.fail(JSON.stringify({
-                        code: 'Error',
-                        message: 'Failed to query copy configuration by user uuid ' + userUuid + ' , ' + err
-                    }));
-                } else {
-                    var results = [];
-                    data.Items.map(function (item) {
-                        results.push({
-                            id: item.id.S,
-                            status: item.copy_status.S,
-                            source: item.source.S,
-                            target: item.target.S
+        switch (event['http-method']) {
+            case 'GET':
+                // #1 query for copy configuration data by user's uuid and subnet
+                return common.queryCopyConfigurationByUserUuidAndSubnet(userUuid, event.subnet)
+
+                    // #2 format and return the response
+                    .then(function (data) {
+                        var results = [];
+                        data.Items.map(function (item) {
+                            results.push({
+                                id: item.id.S,
+                                status: item.copy_status.S,
+                                source: item.source.S,
+                                target: item.target.S
+                            });
                         });
+                        return results;
+                    });
+                break;
+
+            case 'POST':
+                var id = common.uuid();
+
+                // #1.1 query for agent for user's uuid and subnet and return the instance id or fail
+                var agentInstanceIdPromise = common.queryAgentByUserUuidAndSubnetP(userUuid, event.subnet)
+                    .then(function (agentsData) {
+                        if (!agentsData.Count) {
+                            throw new common.NotFoundError('No agent found for user ' + userUuid + ' and subnet ' + event.subnet);
+                        } else if (!agentsData.Items[0].instance || !agentsData.Items[0].instance.S || agentsData.Items[0].instance.S == '') {
+                            throw new common.NotReadyError('Agent not initialized for user ' + userUuid + ' and subnet ' + event.subnet);
+                        } else {
+                            return agentsData.Items[0].instance.S;
+                        }
                     });
 
-                    context.done(null, results);
-                }
-            });
-            break;
-        case 'POST':
-            var id = common.uuid();
+                // #1.2 create copy configuration record
+                var createCopyConfigurationPromise = common.createCopyConfiguration(userUuid, event.subnet, event.source, event.target, id);
 
-            async.waterfall([
-                    function (callback) {
-                        // #1 - create copy configuration entry in dynamo db
-                        common.createCopyConfiguration(userUuid, event.subnet, event.source, event.target, id, function (err, data) {
-                            if (err) {
-                                common.errorHandler(callback, 'Failed to create copy configuration for user uuid ' + userUuid + ' , ' + err);
-                            } else {
-                                callback(null);
-                            }
-                        });
-                    },
-                    function (callback) {
-                        // #2 - get agent instance
-                        common.queryAgentByUserUuidAndSubnet(userUuid, event.subnet, function (err, data) {
-                            if (err) {
-                                common.errorHandler(callback, 'Failed to query agent by user uuid ' + userUuid + ' , ' + err);
-                            } else {
-                                callback(null, data.Items[0].instance.S);
-                            }
-                        });
-                    },
-                    function (instance, callback) {
-                        // #3 - get user's AWS credentials
-                        common.queryUserByUuid(userUuid, function (err, data) {
-                            if (err) {
-                                common.errorHandler(callback, 'Failed to query user by uuid ' + userUuid + ' , ' + err);
-                            } else {
-                                callback(null, instance, data.Items[0].aws_access_key.S, data.Items[0].aws_secret_key.S);
-                            }
-                        });
-                    },
-                    function (instance, awsAccessKey, awsSecretKey, callback) {
-                        // #4 - execute command
-                        var command = '/opt/NetApp/s3sync/agent/scripts/copy-to-s3.py  -s ' + event.source + ' -t ' + event.target + ' -c ' + id + ' -n ' + common.sns_topic;
-                        common.executeCommand(event.region, instance, awsAccessKey, awsSecretKey, 'Copy', command, function (err, data) {
-                            if (err) {
-                                common.errorHandler(callback, 'Failed to execute command for instance ' + instance + ' , ' + err);
-                            } else {
-                                callback(null);
-                            }
-                        });
-                    }
-                ],
-                function (err, result) {
-                    if (err) {
-                        context.fail(JSON.stringify({
-                            code: 'Error',
-                            message: 'Failed to copy for user uuid ' + userUuid + ' , ' + err
-                        }));
-                    } else {
-                        context.done();
-                    }
+                // #2 wait for the promises to complete and execute copy to s3
+                return Promise.join(agentInstanceIdPromise, createCopyConfigurationPromise, function(agentInstanceId) {
+                    var command = '/opt/NetApp/s3sync/agent/scripts/copy-to-s3.py  -s ' + event.source + ' -t ' + event.target + ' -c ' + id + ' -n ' + common.sns_topic;
+                    return common.executeCommandP(event.region, agentInstanceId, user.aws_access_key.S, user.aws_secret_key.S, 'Copy', command);
                 });
-            break;
+                break;
+        }
     }
-};
+);

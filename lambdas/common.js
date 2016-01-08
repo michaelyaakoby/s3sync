@@ -267,16 +267,17 @@ exports.scanCopyConfigurationByCopyStatus = function(status, onQueryResponse) {
     }, onQueryResponse);
 };
 
-exports.queryCopyConfigurationByUserUuidAndSubnet = function (userUuid, subnet, onQueryResponse) {
-    console.log('Query table ' + copy_configuration_table.config.params.TableName + ' by user uuid=' + userUuid + ', subnet=' + subnet);
-
-    copy_configuration_table.query({
-        KeyConditionExpression: 'user_uuid = :user_uuid AND subnet = :subnet',
-        ExpressionAttributeValues: {
-            ":user_uuid": {S: userUuid},
-            ":subnet": {S: subnet}
-        }
-    }, onQueryResponse);
+exports.queryCopyConfigurationByUserUuidAndSubnet = function (userUuid, subnet) {
+    return promisify(
+        'Query table ' + copy_configuration_table.config.params.TableName + ' by user uuid=' + userUuid + ', subnet=' + subnet,
+        copy_configuration_table.query.bind(copy_configuration_table, {
+            KeyConditionExpression: 'user_uuid = :user_uuid AND subnet = :subnet',
+            ExpressionAttributeValues: {
+                ":user_uuid": { S: userUuid },
+                ":subnet": { S: subnet }
+            }
+        })
+    );
 };
 
 exports.queryCopyConfigurationBySubnetAndId = function (subnet, id, onQueryResponse) {
@@ -294,20 +295,19 @@ exports.queryCopyConfigurationBySubnetAndId = function (subnet, id, onQueryRespo
 };
 
 exports.createCopyConfiguration = function (userUuid, subnet, source, target, id, onCreateResponse) {
-    console.log('Put item in table ' + copy_configuration_table.config.params.TableName + ' - user uuid=' + userUuid + ', subnet=' + subnet + ', source=' + source + ', target=' + target);
-
-    var item = {
-        Item: {
-            user_uuid: {S: userUuid},
-            subnet: {S: subnet},
-            source: {S: source},
-            target: {S: target},
-            copy_status: {S: 'not initialized'},
-            id: {S: id}
-        }
-    };
-
-    copy_configuration_table.putItem(item, onCreateResponse);
+    return promisify(
+        'Put item in table ' + copy_configuration_table.config.params.TableName + ' - user uuid=' + userUuid + ', subnet=' + subnet + ', source=' + source + ', target=' + target,
+        copy_configuration_table.putItem.bind(copy_configuration_table, {
+            Item: {
+                user_uuid: { S: userUuid },
+                subnet: { S: subnet },
+                source: { S: source },
+                target: { S: target },
+                copy_status: { S: 'not initialized' },
+                id: { S: id }
+            }
+        })
+    );
 };
 
 exports.updateCopyConfiguration = function (userUuid, subnet, id, status, onUpdateResponse) {
@@ -343,6 +343,13 @@ function NotFoundError(message) {
 NotFoundError.prototype = new Error();
 exports.NotFoundError = NotFoundError;
 
+function NotReadyError(message) {
+    this.name = 'Not Ready';
+    this.message = message;
+}
+NotReadyError.prototype = new Error();
+exports.NotReadyError = NotReadyError;
+
 function BadRequestError(message) {
     this.name = 'Bad Request';
     this.message = message;
@@ -352,6 +359,12 @@ exports.BadRequestError = BadRequestError;
 ///// END ERRORS /////
 
 ///// UTILS /////
+exports.flatten = function(arrayOfArrays) {
+    return arrayOfArrays.reduce(function(a, b) {
+        return a.concat(b);
+    });
+};
+
 function promisify(msg, fn) {
     console.log(msg);
     return new Promise(function (resolve, reject) {
@@ -551,22 +564,112 @@ exports.executeCommand = function (region, instance, awsAccessKey, awsSecretKey,
 };
 ///// END EXECUTE SSM COMMAND /////
 
-///// EC2 DESCRIBE SUBNET /////
-exports.describeSubnet = function(awsAccessKey, awsSecretKey, region, subnet) {
-    var ec2 = new AWS.EC2({
+///// S3 /////
+function getS3(awsAccessKey, awsSecretKey) {
+    return new AWS.S3({
+        accessKeyId: awsAccessKey,
+        secretAccessKey: awsSecretKey
+    });
+}
+
+exports.listBuckets = function(awsAccessKey, awsSecretKey) {
+    var s3 = getS3(awsAccessKey, awsSecretKey);
+
+    return promisify(
+        'List buckets - aws access key=' + awsAccessKey + ', aws secret key=' + awsSecretKey,
+        s3.listBuckets.bind(s3)
+    )
+};
+
+///// END S3 /////
+
+///// CLOUDWATCH /////
+function getCloudWatch(awsAccessKey, awsSecretKey) {
+    return new AWS.CloudWatch({
+        accessKeyId: awsAccessKey,
+        secretAccessKey: awsSecretKey
+    });
+}
+
+exports.getBucketHourlyAverageMetricStats = function(awsAccessKey, awsSecretKey, bucketName, metricName, startTime, endTime) {
+    var cw = getCloudWatch(awsAccessKey, awsSecretKey);
+
+    return promisify(
+        'Get bucket hourly average metric statistics - aws access key=' + awsAccessKey + ', aws secret key=' + awsSecretKey + ', bucketName=' + bucketName + ', metricName=' + metricName + ', startTime=' + startTime + ', endTime=' + endTime,
+        cw.getMetricStatistics.bind(cw, {
+            MetricName: metricName,
+            Namespace: 'AWS/S3',
+            Period: 3600,
+            Statistics: ['Average'],
+            StartTime: startTime,
+            EndTime: endTime,
+            Dimensions: [
+                {
+                    "Name": "BucketName",
+                    "Value": bucketName
+                },
+                {
+                    "Name": "StorageType",
+                    "Value": "AllStorageTypes"
+                }
+            ]
+        })
+    )
+};
+
+///// END CLOUDWATCH /////
+
+///// EC2 /////
+function getEC2(awsAccessKey, awsSecretKey, region) {
+    return new AWS.EC2({
         accessKeyId: awsAccessKey,
         secretAccessKey: awsSecretKey,
         region: region
     });
+}
+
+exports.describeSubnets = function(awsAccessKey, awsSecretKey, region, subnet) {
+    var ec2 = getEC2(awsAccessKey, awsSecretKey, region);
+
+    var funcWithCallback;
+    if (subnet) {
+        funcWithCallback = ec2.describeSubnets.bind(ec2, {
+            SubnetIds: [ subnet ]
+        });
+    } else {
+        funcWithCallback = ec2.describeSubnets.bind(ec2);
+    }
 
     return promisify(
-        'Describe subnet - aws access key=' + awsAccessKey + ', aws secret key=' + awsSecretKey + ', region=' + region + ', subnet=' + subnet,
-        ec2.describeSubnets.bind(ec2, {
-            SubnetIds: [ subnet ]
-        })
+        'Describe subnets - aws access key=' + awsAccessKey + ', aws secret key=' + awsSecretKey + ', region=' + region + ', subnet=' + subnet,
+        funcWithCallback
     )
 };
-///// END EC2 DESCRIBE SUBNET /////
+
+exports.describeKeyPairs = function(awsAccessKey, awsSecretKey, region) {
+    var ec2 = getEC2(awsAccessKey, awsSecretKey, region);
+
+    return promisify(
+        'Describe key pairs - aws access key=' + awsAccessKey + ', aws secret key=' + awsSecretKey + ', region=' + region,
+        ec2.describeKeyPairs.bind(ec2)
+    );
+};
+
+exports.describeRegionNames = function(awsAccessKey, awsSecretKey) {
+    var ec2 = getEC2(awsAccessKey, awsSecretKey, undefined);
+
+    return promisify(
+        'Describe regions - aws access key=' + awsAccessKey + ', aws secret key=' + awsSecretKey,
+        ec2.describeRegions.bind(ec2)
+    )
+
+        .then(function (data) {
+            return Object.keys(data.Regions).map(function(key){
+                return data.Regions[key].RegionName;
+            });
+        });
+};
+///// END EC2 /////
 
 ///// GET URL CONTENT /////
 exports.getUrlContent = function(host, port, path) {
