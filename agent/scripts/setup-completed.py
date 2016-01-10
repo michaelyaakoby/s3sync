@@ -25,16 +25,14 @@ for opt, arg in opts:
 if stackName is None or snsTopic is None:
   usage()
 
-cfnClient = boto3.client('cloudformation')
-cfnClient.signal_resource(
+boto3.client('cloudformation').signal_resource(
     StackName=stackName,
     LogicalResourceId='AgentInstance',
     UniqueId=metadata.instanceId,
     Status='SUCCESS'
 )
 
-snsClient = boto3.client('sns')
-snsClient.publish(
+boto3.client('sns').publish(
     TopicArn=snsTopic, 
     Subject='deploy-agent-completed', 
     Message='{"deploy-agent": { "vpc-id": "' + metadata.vpcId + '", "subnet-id": "' + metadata.subnetId + '", "instance-id": "' + metadata.instanceId + '" }, "status": "success"}'
