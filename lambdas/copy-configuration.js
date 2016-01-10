@@ -45,7 +45,7 @@ exports.handler = common.eventHandler(
                 var id = common.uuid();
 
                 // #1.1 query for agent for user's uuid and subnet and return the instance id or fail
-                var agentInstanceIdPromise = common.queryAgentByUserUuidAndSubnetP(userUuid, event.subnet)
+                var agentInstanceIdPromise = common.queryAgentByUserUuidAndSubnet(userUuid, event.subnet)
                     .then(function (agentsData) {
                         if (!agentsData.Count) {
                             throw new common.NotFoundError('No agent found for user ' + userUuid + ' and subnet ' + event.subnet);
@@ -62,7 +62,7 @@ exports.handler = common.eventHandler(
                 // #2 wait for the promises to complete and execute copy to s3
                 return Promise.join(agentInstanceIdPromise, createCopyConfigurationPromise, function(agentInstanceId) {
                     var command = '/opt/NetApp/s3sync/agent/scripts/copy-to-s3.py  -s ' + event.source + ' -t ' + event.target + ' -c ' + id + ' -n ' + common.sns_topic;
-                    return common.executeCommandP(event.region, agentInstanceId, user.aws_access_key.S, user.aws_secret_key.S, 'Copy', command);
+                    return common.executeCommand(event.region, agentInstanceId, user.aws_access_key.S, user.aws_secret_key.S, 'Copy', command);
                 });
                 break;
         }

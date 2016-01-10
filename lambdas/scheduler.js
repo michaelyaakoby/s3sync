@@ -2,93 +2,82 @@ var common = require('./common');
 var AWS = require('aws-sdk');
 var async = require('async');
 
-exports.handler = function (event, context) {
-    console.log('Received event:', JSON.stringify(event, null, 2));
+exports.handler = common.eventHandler(
+    function (event) {
+        // #1 retrieve all copy configurations with specific status
+        return common.scanCopyConfigurationByCopyStatus('completed')
 
-    common.scanCopyConfigurationByCopyStatus("completed", function (err, data) {
-        if (err) {
-            context.fail(JSON.stringify({
-                code: 'Error',
-                message: 'Failed to scan copy configurations by status \'completed\' , ' + err
-            }));
-        } else {
-            console.log('Found ' + data.Items.length + ' copy configurations to be processed');
+            // #2 log and return the copy configurations
+            .then(function (copyConfigurationsData) {
+                console.log('Found ' + copyConfigurationsData.Items.length + ' copy configurations in status completed to be re-processed...');
+                return copyConfigurationsData.Items;
+            })
 
-            async.each(
-                data.Items,
-                function(cc, ccCallback) {
-                    console.log('Re-running copy configuration ' + JSON.stringify(cc));
+            // #3 re-process each copy configuration found
+            .map(function (copyConfiguration) {
+                var copyConfigurationString = JSON.stringify(copyConfiguration);
 
-                    var user_uuid = cc.user_uuid.S;
-                    var subnet = cc.subnet.S;
-                    var id = cc.id.S;
-                    var source = cc.source.S;
-                    var target = cc.target.S;
+                console.log('Re-processing copy configuration: ' + copyConfigurationString);
 
-                    async.waterfall([
-                        function (callback) {
-                            // #1 - update copy configuration entry status in dynamo db
-                            common.updateCopyConfiguration(user_uuid, subnet, id, 'not initialized', function (err, data) {
-                                if (err) {
-                                    common.errorHandler(callback, 'Failed to update copy configuration for user uuid ' + user_uuid + ' , subnet ' + subnet + ' id ' + id + ' to "not initialized" , ' + err);
-                                } else {
-                                    callback(null);
-                                }
-                            });
-                        },
-                        function (callback) {
-                            // #2 - get agent instance
-                            common.queryAgentByUserUuidAndSubnet(user_uuid, subnet, function (err, data) {
-                                if (err) {
-                                    common.errorHandler(callback, 'Failed to query agent by user uuid ' + user_uuid + ' , subnet ' + subnet + ' , ' + err);
-                                } else {
-                                    callback(null, data.Items[0].instance.S, data.Items[0].region.S);
-                                }
-                            });
-                        },
-                        function (instance, region, callback) {
-                            // #3 - get user's AWS credentials
-                            common.queryUserByUuid(user_uuid, function (err, data) {
-                                if (err) {
-                                    common.errorHandler(callback, 'Failed to query user by uuid ' + user_uuid + ' , ' + err);
-                                } else {
-                                    callback(null, instance, region, data.Items[0].aws_access_key.S, data.Items[0].aws_secret_key.S);
-                                }
-                            });
-                        },
-                        function (instance, region, awsAccessKey, awsSecretKey, callback) {
-                            // #4 - execute command
-                            var command = '/opt/NetApp/s3sync/agent/scripts/copy-to-s3.py  -s ' + source + ' -t ' + target + ' -c ' + id + ' -n ' + common.sns_topic;
-                            common.executeCommand(region, instance, awsAccessKey, awsSecretKey, 'Copy', command, function (err, data) {
-                                if (err) {
-                                    common.errorHandler(callback, 'Failed to execute command for instance ' + instance + ' , of user ' + user_uuid + ' , ' + err);
-                                } else {
-                                    callback(null);
-                                }
-                            });
-                        }
-                    ],
-                    function (err, result) {
-                        if (err) {
-                            common.errorHandler(ccCallback, 'Failed re-running copy configuration for user uuid ' + user_uuid + ' , ' + err);
+                var user_uuid = copyConfiguration.user_uuid.S;
+                var subnet = copyConfiguration.subnet.S;
+                var id = copyConfiguration.id.S;
+                var source = copyConfiguration.source.S;
+                var target = copyConfiguration.target.S;
+
+                var commandData = {};
+
+                // #3.1 query for the user data or fail
+                return common.queryUserByUuid(user_uuid)
+
+                    // #3.2 get the user or fail
+                    .then(function (usersData) {
+                        if (!usersData.Count) {
+                            throw new Error('User: ' + user_uuid + ' not found for copy configuration: ' + copyConfigurationString);
                         } else {
-                            ccCallback(null);
+                            return usersData.Items[0];
                         }
-                    });
-                },
-                function(err) {
-                    if (err) {
-                        context.fail(JSON.stringify({
-                            code: 'Error',
-                            message: 'Failed to re-run copy configurations by status "completed" ' + err
-                        }));
-                    } else {
-                        console.log('Completed running ' + data.Items.length + ' copy configurations successfully');
-                        context.done();
-                    }
-                }
-            );
+                    })
 
-        }
-    });
-};
+                    // #3.3 collect the user's aws access & secret keys
+                    .then(function (user) {
+                        commandData.awsAccessKey = user.aws_access_key.S;
+                        commandData.awsSecretKey = user.aws_secret_key.S;
+                        return null;
+                    })
+
+                    // #3.4 query for the copy configuration's agent
+                    .then(function () {
+                        return common.queryAgentByUserUuidAndSubnet(user_uuid, subnet);
+                    })
+
+                    // #3.5 collect the agent's instance id and region or fail
+                    .then(function (agentsData) {
+                        if (!agentsData.Count) {
+                            throw new Error('No agent data found for copy configuration: ' + copyConfigurationString);
+                        }
+                        var agent = agentsData.Items[0];
+                        if (!agent.instance || ! agent.instance.S || agent.instance.S == '') {
+                            throw new Error('No instance found for copy configuration: ' + copyConfigurationString + ', agent: ' + JSON.stringify(agent));
+                        } else if (!agent.region || ! agent.region.S || agent.region.S == '') {
+                            throw new Error('No region found for copy configuration: ' + copyConfigurationString + ', agent: ' + JSON.stringify(agent));
+                        } else {
+                            commandData.instance = agent.instance.S;
+                            commandData.region = agent.region.S;
+                            return null;
+                        }
+                    })
+
+                    // #3.6 update the copy configuration status to 'not initialized'
+                    .then(function () {
+                        return common.updateCopyConfiguration(user_uuid, subnet, id, 'not initialized')
+                    })
+
+                    // #3.7 execute the copy-to-s3 command
+                    .then(function() {
+                        var command = '/opt/NetApp/s3sync/agent/scripts/copy-to-s3.py  -s ' + source + ' -t ' + target + ' -c ' + id + ' -n ' + common.sns_topic;
+                        return common.executeCommand(region, instance, awsAccessKey, awsSecretKey, 'Copy', command);
+                    });
+            });
+    }
+);

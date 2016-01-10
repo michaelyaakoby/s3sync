@@ -23,7 +23,7 @@ exports.handler = common.eventHandler(
         switch (event['http-method']) {
             case 'GET':
                 // #1 query for user agents by subnet
-                return exports.queryAgentByUserUuidAndSubnetP(userUuid, event.subnet)
+                return exports.queryAgentByUserUuidAndSubnet(userUuid, event.subnet)
 
                     // #2 format the response
                     .then(function (agentsData) {

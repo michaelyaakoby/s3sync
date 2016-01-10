@@ -14,7 +14,7 @@ exports.handler = common.eventHandler(
         var userUuid = event['user-uuid'];
 
         // #1 - query the agent by uuid and subnet
-        return common.queryAgentByUserUuidAndSubnetP(userUuid, event.subnet)
+        return common.queryAgentByUserUuidAndSubnet(userUuid, event.subnet)
 
             // #2 - validate agent exists and initialized or fail
             .then(function (agentsData) {
@@ -34,7 +34,7 @@ exports.handler = common.eventHandler(
                 var awsSecretKey = user.aws_secret_key.S;
                 //TODO - username/password and sns should be parameters to the lambda
                 var command = '/opt/NetApp/s3sync/agent/scripts/find-exports.py --address ' + event['cluster-mgmt-ip'] + ' --user admin --password Netapp234 --sns-topic ' + common.sns_topic;
-                return common.executeCommandP(event.region, instance, awsAccessKey, awsSecretKey, 'Export', command);
+                return common.executeCommand(event.region, instance, awsAccessKey, awsSecretKey, 'Export', command);
             })
 
             // #4 query list of exports

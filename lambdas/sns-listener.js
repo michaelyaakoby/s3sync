@@ -1,5 +1,5 @@
 var common = require('./common.js');
-var AWS = require('aws-sdk');
+var Promise = require('bluebird');
 
 // handles the following notifications:
 // agent status
@@ -19,144 +19,101 @@ var AWS = require('aws-sdk');
 // subnet
 // status
 // id
-exports.handler = function (event, context) {
-    console.log('Received event:', JSON.stringify(event, null, 2));
-    var message = JSON.parse(event.Records[0].Sns.Message);
+exports.handler = common.eventHandler(
+    function (event) {
+        var subject = JSON.parse(event.Records[0].Sns.Subject);
+        var rawMessage = event.Records[0].Sns.Message;
+        var message = JSON.parse(rawMessage);
+        var actionPromise;
 
-    switch (event.Records[0].Sns.Subject) {
-        case 'deploy-agent-completed':
-            console.log('Got deploy-agent-completed message', JSON.stringify(message, null, 2));
-            var agentInfo = message['deploy-agent'];
-            var subnet = agentInfo['subnet-id'];
-            var instance = agentInfo['instance-id'];
-            var status = message.status;
+        console.log('Received "' + subject + '" message: ' + rawMessage);
 
-            common.queryAgentBySubnet(subnet, function (err, data) {
-                if (err) {
-                    context.fail(JSON.stringify({
-                        code: 'Error',
-                        message: 'Failed to query agent by subnet ' + subnet + ' , ' + err
-                    }));
-                } else if (data.Count === 1) {
-                    common.updateAgent(data.Items[0].user_uuid.S, subnet, instance, status, function (err, data) {
-                        if (err) {
-                            context.fail(JSON.stringify({
-                                code: 'Error',
-                                message: 'Failed to update agent with subnet ' + subnet + ' , ' + err
-                            }));
+        switch (subject) {
+
+            case 'deploy-agent-completed':
+                var status = message.status;
+                var agentInfo = message['deploy-agent'];
+                var subnet = agentInfo['subnet-id'];
+                var instance = agentInfo['instance-id'];
+
+                // #1 query agent by subnet and extract agent's user's uuid or fail
+                actionPromise = common.queryAgentBySubnet(subnet)
+
+                    // #2 extract agent user's uuid
+                    .then(function (agentsData) {
+                        if (!agentsData.Count) {
+                            throw new Error('No agent found for subnet ' + subnet);
                         } else {
-                            context.done();
+                            return agentsData.Items[0].user_uuid.S;
                         }
+                    })
+
+                    // #3 update agent record with instance id
+                    .then(function(user_uuid) {
+                        return common.updateAgent(user_uuid, subnet, instance, status);
                     });
-                } else {
-                    context.fail(JSON.stringify({
-                        code: 'Error',
-                        message: 'Got unexpected number ' + data.Count + ' of agents for subnet ' + subnet
-                    }));
-                }
-            });
+                break;
 
-            break;
-        case 'find-exports':
-            console.log('Got find-exports message', JSON.stringify(message, null, 2));
-            var exportsData = message['find-exports'];
-            subnet = exportsData['subnet-id'];
-            var clusterMgmtIp = exportsData['cluster-mgmt-ip'];
+            case 'copy-to-s3':
+                var id = message['copy-id'];
+                var subnet = message['subnet-id'];
+                var status = (message['copy-completed']) ? 'completed' : JSON.stringify(message);
 
-            common.queryExportsBySubnetAndIp(subnet, clusterMgmtIp, function (err, data) {
-                if (err) {
-                    context.fail(JSON.stringify({
-                        code: 'Error',
-                        message: 'Failed to query exports with subnet ' + subnet + ' , ' + err
-                    }));
-                } else {
-                    if (data.Count === 0) {
-                        // first time that we received exports - find user uuid in clusters table
-                        common.queryClustersBySubnetAndIp(subnet, clusterMgmtIp, function (err, data) {
-                            if (err) {
-                                context.fail(JSON.stringify({
-                                    code: 'Error',
-                                    message: 'Failed to query exports with subnet ' + subnet + ' , ' + err
-                                }));
-                            } else {
-                                if (data.Count === 1) {
-                                    var userUuid = data.Items[0].user_uuid.S;
-                                    common.updateExports(userUuid, subnet, clusterMgmtIp, exportsData.exports, function (err, data) {
-                                        if (err) {
-                                            context.fail(JSON.stringify({
-                                                code: 'Error',
-                                                message: 'Failed to update exports for ' + subnet + ' and cluster management ip ' + clusterMgmtIp
-                                            }));
-                                        } else {
-                                            context.done();
-                                        }
-                                    });
-                                } else {
-                                    context.fail(JSON.stringify({
-                                        code: 'Error',
-                                        message: 'Got unexpected number of clusters for subnet ' + subnet + ' and cluster management ip ' + clusterMgmtIp
-                                    }));
-                                }
-                            }
-                        });
-                    } else if (data.Count === 1) {
-                        // got update for existing data
-                        var userUuid = data.Items[0].user_uuid.S;
-                        common.updateExports(userUuid, subnet, clusterMgmtIp, exportsData.exports, function (err, data) {
-                            if (err) {
-                                context.fail(JSON.stringify({
-                                    code: 'Error',
-                                    message: 'Failed to update exports for ' + subnet + ' and cluster management ip ' + clusterMgmtIp
-                                }));
-                            } else {
-                                context.done();
-                            }
-                        });
-                    } else {
-                        context.fail(JSON.stringify({
-                            code: 'Error',
-                            message: 'Got unexpected number of exports for subnet ' + subnet + ' and cluster management ip ' + clusterMgmtIp
-                        }));
-                    }
-                }
+                // #1 query for copy configuration
+                return common.queryCopyConfigurationBySubnetAndId(subnet, id)
+
+                    // #2 extract the user's uuid from queried copy configuration or fail
+                    .then(function (copyConfigurationsData) {
+                        if (!copyConfigurationsData.Count) {
+                            throw new Error('No copy configuration found for id: ' + id + ' and subnet: ' + subnet);
+                        } else {
+                            return copyConfigurationsData.Items[0].user_uuid.S;
+                        }
+                    })
+
+                    // #3 update copy configuration status
+                    .then(function (user_uuid) {
+                        return common.updateCopyConfiguration(user_uuid, subnet, id, status);
+                    });
+                break;
+
+            case 'find-exports':
+                var exportsData = message['find-exports'];
+                var subnet = exportsData['subnet-id'];
+                var clusterMgmtIp = exportsData['cluster-mgmt-ip'];
+
+                // #1 query cluster by subnet & management ip
+                return common.queryClustersBySubnetAndIp(subnet, clusterMgmtIp)
+
+                    // #2 extract the user's uui from the cluster data or fail
+                    .then(function (clustersData) {
+                        if (!clustersData.Count) {
+                            throw new Error('No cluster data found for subnet: ' + subnet + ' and cluster management ip: ' + clusterMgmtIp);
+                        } else {
+                            return clustersData.Items[0].user_uuid.S;
+                        }
+                    })
+
+                    // #3 update exports data
+                    .then(function (user_uuid) {
+                        return common.updateExports(user_uuid, subnet, clusterMgmtIp, exportsData.exports);
+                    });
+
+                break;
+
+            default:
+                actionPromise = Promise.reject(new Error('Unexpected message!'));
+                break;
+        }
+
+        return actionPromise
+            .then(function() {
+                console.log('Successfully handled "' + subject + '" message: ' + rawMessage);
+                return null;
+            })
+            .catch(function (err) {
+                console.log('Failed handling "' + subject + '" message: ' + rawMessage + ' with error: ' + err.message);
+                return null;
             });
-            break;
-        case 'copy-to-s3':
-            var subnetId = message['subnet-id'];
-            var copyId = message['copy-id'];
-            common.queryCopyConfigurationBySubnetAndId(subnetId, copyId, function (err, data) {
-                if (err) {
-                    context.fail(JSON.stringify({
-                        code: 'Error',
-                        message: 'Failed to query copy configuration by subnet ' + subnetId + ' and id ' + copyId + ', ' + err
-                    }));
-                } else {
-                    if (data.Count === 1) {
-                        var userUuid = data.Items[0].user_uuid.S;
-                        var status = (message['copy-completed']) ? 'completed' : JSON.stringify(message);
-                        common.updateCopyConfiguration(userUuid, subnetId, copyId, status, function (err, data) {
-                            if (err) {
-                                context.fail(JSON.stringify({
-                                    code: 'Error',
-                                    message: 'Failed to update copy configuration by subnet ' + subnetId + ' and id ' + copyId + ', ' + err
-                                }));
-                            } else {
-                                context.done();
-                            }
-                        });
-                    } else {
-                        context.fail(JSON.stringify({
-                            code: 'Error',
-                            message: 'Got unexpected number of copy configurations for subnet ' + subnetId + ' and id ' + copyId
-                        }));
-                    }
-                }
-            });
-            break;
-        default:
-            // finish the function on unexpected events (it gets a lot of CF events while creating an agent)
-            console.log('Unhandled message:', JSON.stringify(message, null, 2));
-            context.done();
     }
-};
-
+);
