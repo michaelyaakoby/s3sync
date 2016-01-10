@@ -233,7 +233,7 @@
                                 "",
                                 "# Install git, clone the s3sync repository and chmod+x the scripts",
                                 "yum -y install git",
-                                "git clone --branch boto3 --single-branch https://github.com/michaelyaakoby/s3sync /opt/NetApp/s3sync",
+                                "git clone https://github.com/michaelyaakoby/s3sync /opt/NetApp/s3sync",
                                 "chmod +x /opt/NetApp/s3sync/agent/scripts/*",
                                 "",
                                 "# Notify cloudformation and the provided SNS that setup is complete",
