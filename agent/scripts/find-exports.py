@@ -1,12 +1,12 @@
 #!/usr/bin/python
 
-import os
 import sys
 import requests
 import xml.etree.ElementTree as ET
 import getopt
 import json
 import metadata
+import boto3
 
 def usage():
   print "Usage: " + sys.argv[0] + " --address <ontap-cluster> --user <admin-user-name> --password <admin-password> [--sns-topic <sns-topic-arn>]"
@@ -95,4 +95,9 @@ print exports
 
 if snsTopic is not None:
   jsonExports = json.dumps(exports)
-  os.system("aws sns publish --region " + metadata.region + " --topic-arn " + snsTopic + " --subject find-exports --message '{\"instance-id\": \"" + metadata.instanceId + "\", \"find-exports\": { \"cluster-mgmt-ip\": \"" + address + "\", \"subnet-id\": \"" + metadata.subnetId +"\", \"exports\": " + jsonExports + " }}'")
+  boto3.client('sns').publish(
+    TopicArn=snsTopic, 
+    Subject='find-exports', 
+    Message='{"instance-id": "' + metadata.instanceId + '", "find-exports": { "cluster-mgmt-ip": "' + address + '", "subnet-id": "' + metadata.subnetId +'", "exports": ' + jsonExports + ' }}'
+  )
+

@@ -1,12 +1,13 @@
 #!/usr/bin/python
 
-import os
 import sys
 import requests
 import xml.etree.ElementTree as ET
 import getopt
 import json
 import metadata
+import boto3
+
 
 def usage():
   print "Usage: " + sys.argv[0] + " --address <ontap-cluster> --user <admin-user-name> --password <admin-password> --request <zapi-request-xml> [--request-id <request-id> --sns-topic <sns-topic-arn>]"
@@ -50,4 +51,8 @@ print '------- Response ---------'
 print responseText
 
 if snsTopic is not None:
-  os.system("aws sns publish --region " + metadata.region + " --topic-arn " + snsTopic + " --subject invoke-zapi --message '{\"request-id\": \"" + requestId + "\", \"instance-id\": \"" + metadata.instanceId + "\", \"invoke-zapi\": { \"cluster-mgmt-ip\": \"" + address + "\", \"subnet-id\": \"" + metadata.subnetId +"\", \"response\": \"" + responseText + "\" }}'")
+  boto3.client('sns').publish(
+    TopicArn=snsTopic, 
+    Subject='invoke-zapi', 
+    Message='{"request-id": "' + requestId + '", "instance-id": "' + metadata.instanceId + '", "invoke-zapi": { "cluster-mgmt-ip": "' + address + '", "subnet-id": "' + metadata.subnetId + '", "response": "' + responseText + '"}}'
+  )

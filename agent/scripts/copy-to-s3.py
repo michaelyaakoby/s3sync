@@ -5,6 +5,7 @@ import sys
 import getopt
 import metadata
 import re
+import boto3
 
 def usage():
   print "Usage: " + sys.argv[0] + " --copy-id <copy-session-id> --source-nfs-url <nfs://source-ip/path> --target-s3-url <s3://bucket/path> [--refresh] [--sns-topic <sns-topic-arn>]"
@@ -43,4 +44,8 @@ os.system("xcp copy -newid " + copyId + " " + nfsSource + " " + targetS3Url)
 print "Copy completed"
 
 if snsTopic is not None:
-  os.system("aws sns publish --region " + metadata.region + " --topic-arn " + snsTopic + " --subject copy-to-s3 --message '{\"copy-id\": \"" + copyId + "\", \"instance-id\": \"" + metadata.instanceId + "\", \"subnet-id\": \"" + metadata.subnetId +"\", \"copy-completed\": { \"source\": \"" + sourceNfsUrl + "\", \"destination\": \"" + targetS3Url + "\" }}'")
+  boto3.client('sns').publish(
+    TopicArn=snsTopic, 
+    Subject='copy-to-s3', 
+    Message='{"copy-id": "' + copyId + '", "instance-id": "' + metadata.instanceId + '", "subnet-id": "' + metadata.subnetId + '", "copy-completed": { "source": "' + sourceNfsUrl + '", "destination": "' + targetS3Url + '"}}'
+  )
