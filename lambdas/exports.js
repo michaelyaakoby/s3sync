@@ -10,7 +10,7 @@ var common = require('./common');
 // subnet
 // cluster-mgmt-ip
 exports.handler = common.eventHandler(
-    function(event, user) {
+    function (event, user) {
         var userUuid = event['user-uuid'];
 
         // #1 - query the agent by uuid and subnet
@@ -27,13 +27,22 @@ exports.handler = common.eventHandler(
                 }
             })
 
-            // #3 issue list exports command
+            // #3 - get cluster password
             .then(function (agent) {
-                var instance = agent.instance.S;
+                return common.queryClustersBySubnetAndIp(event.subnet, event['cluster-mgmt-ip']).then(function (cluster) {
+                    return {
+                        agent: agent,
+                        clusterPassword: cluster.password
+                    };
+                });
+            })
+
+            // #4 - issue list exports command
+            .then(function (info) {
+                var instance = info.agent.instance.S;
                 var awsAccessKey = user.aws_access_key.S;
                 var awsSecretKey = user.aws_secret_key.S;
-                //TODO - username/password and sns should be parameters to the lambda
-                var command = '/opt/NetApp/s3sync/agent/scripts/find-exports.py --address ' + event['cluster-mgmt-ip'] + ' --user admin --password Netapp234 --sns-topic ' + common.sns_topic;
+                var command = '/opt/NetApp/s3sync/agent/scripts/find-exports.py --address ' + event['cluster-mgmt-ip'] + ' --user admin --password ' + info.clusterPassword + ' --sns-topic ' + common.sns_topic;
                 return common.executeCommand(event.region, instance, awsAccessKey, awsSecretKey, 'Export', command);
             })
 
@@ -51,7 +60,7 @@ exports.handler = common.eventHandler(
                     console.log('No exports in DB record for user ' + userUuid + ' and subnet ' + event.subnet);
                     return [];
                 } else {
-                    return exportsData.Items[0].exports.S;
+                    return JSON.parse(exportsData.Items[0].exports.S);
                 }
             });
     }

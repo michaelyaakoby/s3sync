@@ -60,9 +60,11 @@ exports.handler = common.eventHandler(
                 var createCopyConfigurationPromise = common.createCopyConfiguration(userUuid, event.subnet, event.source, event.target, id);
 
                 // #2 wait for the promises to complete and execute copy to s3
-                return Promise.join(agentInstanceIdPromise, createCopyConfigurationPromise, function(agentInstanceId) {
-                    var command = '/opt/NetApp/s3sync/agent/scripts/copy-to-s3.py  -s ' + event.source + ' -t ' + event.target + ' -c ' + id + ' -n ' + common.sns_topic;
+                return Promise.join(agentInstanceIdPromise, createCopyConfigurationPromise, function (agentInstanceId) {
+                    var target = event.target + '/' + id;
+                    var command = '/opt/NetApp/s3sync/agent/scripts/copy-to-s3.py  -s ' + event.source + ' -t ' + target + ' -c ' + id + ' -n ' + common.sns_topic;
                     return common.executeCommand(event.region, agentInstanceId, user.aws_access_key.S, user.aws_secret_key.S, 'Copy', command);
+                }).then(function(){
                 });
                 break;
         }

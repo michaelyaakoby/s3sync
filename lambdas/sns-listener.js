@@ -21,12 +21,9 @@ var Promise = require('bluebird');
 // id
 exports.handler = common.eventHandler(
     function (event) {
-        var subject = JSON.parse(event.Records[0].Sns.Subject);
-        var rawMessage = event.Records[0].Sns.Message;
-        var message = JSON.parse(rawMessage);
+        var subject = event.Records[0].Sns.Subject;
+        var message = JSON.parse(event.Records[0].Sns.Message);
         var actionPromise;
-
-        console.log('Received "' + subject + '" message: ' + rawMessage);
 
         switch (subject) {
 
@@ -49,7 +46,7 @@ exports.handler = common.eventHandler(
                     })
 
                     // #3 update agent record with instance id
-                    .then(function(user_uuid) {
+                    .then(function (user_uuid) {
                         return common.updateAgent(user_uuid, subnet, instance, status);
                     });
                 break;
@@ -107,12 +104,12 @@ exports.handler = common.eventHandler(
         }
 
         return actionPromise
-            .then(function() {
-                console.log('Successfully handled "' + subject + '" message: ' + rawMessage);
+            .then(function () {
+                console.log('Successfully handled "' + subject + '"');
                 return null;
             })
             .catch(function (err) {
-                console.log('Failed handling "' + subject + '" message: ' + rawMessage + ' with error: ' + err.message);
+                console.log('Failed handling "' + subject + '"');
                 return null;
             });
     }

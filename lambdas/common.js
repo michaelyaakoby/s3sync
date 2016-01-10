@@ -141,15 +141,14 @@ function getAgentsTable() {
     return new AWS.DynamoDB({params: {TableName: 'agents'}});
 }
 
-exports.createAgent = function (userUuid, region, vpc, subnet) {
+exports.createAgent = function (userUuid, region, subnet) {
     var agents_table = getAgentsTable();
     return promisify(
-        'Put item in table ' + agents_table.config.params.TableName + ' - user uui=' + userUuid + ', region=' + region + ', vpc=' + vpc + ', subnet=' + subnet,
+        'Put item in table ' + agents_table.config.params.TableName + ' - user uui=' + userUuid + ', region=' + region + ', subnet=' + subnet,
         agents_table.putItem.bind(agents_table, {
             Item: {
                 user_uuid: {S: userUuid},
                 region: {S: region},
-                vpc: {S: vpc},
                 subnet: {S: subnet},
                 agent_status: {S: 'initializing'}
             }

@@ -62,7 +62,10 @@ exports.handler = common.eventHandler(
                 // #3 wait for the promises to complete and create CF stack
                 return Promise.join(vpcIdPromise, cfTemplatePromise, function (vpcId, cfTemplate) {
                     return common.createCFStack(awsAccessKey, awsSecretKey, region, vpcId, subnet, keypair, username, cfTemplate);
-                });
+                })
+                    .then(function () {
+                        return common.createAgent(userUuid, region, subnet);
+                    });
                 break;
         }
     }
