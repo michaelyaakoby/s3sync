@@ -8,16 +8,15 @@ import re
 import boto3
 
 def usage():
-  print "Usage: " + sys.argv[0] + " --copy-id <copy-session-id> --source-nfs-url <nfs://source-ip/path> --target-s3-url <s3://bucket/path> [--refresh] [--sns-topic <sns-topic-arn>]"
+  print "Usage: " + sys.argv[0] + " --copy-id <copy-session-id> --source-nfs-url <nfs://source-ip/path> --target-s3-url <s3://bucket/path> [--sns-topic <sns-topic-arn>]"
   sys.exit(2)
 
 try:
-  opts, args = getopt.getopt(sys.argv[1:], "c:s:t:rn:", ["copy-id=", "source-nfs-url=", "target-s3-url=", "refres", "sns-topic="])
+  opts, args = getopt.getopt(sys.argv[1:], "c:s:t:n:", ["copy-id=", "source-nfs-url=", "target-s3-url=", "sns-topic="])
 except getopt.GetoptError:
   usage()
 
 copyId = sourceNfsUrl = targetS3Url = snsTopic = None
-refresh = False
 
 for opt, arg in opts:
   if opt in ("-c", "--copy-id"):
@@ -26,8 +25,6 @@ for opt, arg in opts:
     sourceNfsUrl = arg
   elif opt in ("-t", "--target-s3-url"):
     targetS3Url = arg
-  elif opt in ("-r", "--refresh"):
-    refresh = true
   elif opt in ("-n", "--sns-topic"):
     snsTopic = arg
 
@@ -39,8 +36,12 @@ nfsPattern = re.compile('nfs://([^/]+)(.*)')
 nfsSource = nfsAddress + ":" + nfsPath
 print "NFS Source: " + nfsSource
 
-print "Starting to copy to: " + targetS3Url
-os.system("xcp copy -newid " + copyId + " " + nfsSource + " " + targetS3Url)
+if os.path.exists('/catalog/catalog/indexes/' + copyId):
+  print "Starting incremental copy to: " + targetS3Url
+  os.system("xcp sync -id " + copyId)
+else:
+  print "Starting basling copy to: " + targetS3Url
+  os.system("xcp copy -newid " + copyId + " " + nfsSource + " " + targetS3Url)
 print "Copy completed"
 
 if snsTopic is not None:
