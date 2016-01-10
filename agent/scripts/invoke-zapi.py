@@ -50,4 +50,4 @@ print '------- Response ---------'
 print responseText
 
 if snsTopic is not None:
-  os.system("aws sns publish --region " + metadata.region + " --topic-arn " + snsTopic + " --subject invoke-zapi --message '{\"request-id\": \"" + requestId + "\", \"instance-id\": \"" + metadata.instanceId + "\", \"invoke-zapi\": { \"cluster-mgmt-ip\": \"" + address + "\", \"subnet-id\": \"" + metadata.subnet +"\", \"response\": \"" + responseText + "\" }}'")
+  os.system("aws sns publish --region " + metadata.region + " --topic-arn " + snsTopic + " --subject invoke-zapi --message '{\"request-id\": \"" + requestId + "\", \"instance-id\": \"" + metadata.instanceId + "\", \"invoke-zapi\": { \"cluster-mgmt-ip\": \"" + address + "\", \"subnet-id\": \"" + metadata.subnetId +"\", \"response\": \"" + responseText + "\" }}'")

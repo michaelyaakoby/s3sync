@@ -95,4 +95,4 @@ print exports
 
 if snsTopic is not None:
   jsonExports = json.dumps(exports)
-  os.system("aws sns publish --region " + metadata.region + " --topic-arn " + snsTopic + " --subject find-exports --message '{\"instance-id\": \"" + metadata.instanceId + "\", \"find-exports\": { \"cluster-mgmt-ip\": \"" + address + "\", \"subnet-id\": \"" + metadata.subnet +"\", \"exports\": " + jsonExports + " }}'")
+  os.system("aws sns publish --region " + metadata.region + " --topic-arn " + snsTopic + " --subject find-exports --message '{\"instance-id\": \"" + metadata.instanceId + "\", \"find-exports\": { \"cluster-mgmt-ip\": \"" + address + "\", \"subnet-id\": \"" + metadata.subnetId +"\", \"exports\": " + jsonExports + " }}'")

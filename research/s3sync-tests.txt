@@ -1,3 +1,43 @@
+Using boto
+==========
+insatll boto:
+-------------
+curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
+python get-pip.py
+pip install boto3
+
+send SNS:
+---------
+mkdir ~/.aws
+echo "[default]" > ~/.aws/config
+echo "region=us-west-2" >> ~/.aws/config
+
+from python:
+- - - - - - - 
+import boto3
+
+snsClient = boto3.client('sns')
+client.publish(TopicArn='arn:aws:sns:us-west-2:464262061435:copy1', Subject='kuki', Message='Puki')
+
+send CFN update:
+----------------
+
+cfnClient = boto3.client('cloudformation')
+cfnClient.signal_resource(
+    StackName='michael',
+    LogicalResourceId='AgentInstance',
+    UniqueId='i-f669d22c',
+    Status='SUCCESS'
+)
+
+If I could describe the instance...
+- - - - - - - - - - - - - - - - - -
+instance = client.describe_instances(InstanceIds=['i-f669d22c'])
+subnetId = instance['Reservations'][0]['Instances'][0]['SubnetId']
+vpcId = instance['Reservations'][0]['Instances'][0]['VpcId']
+
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
 XCP
 ====
 mkdir /catalog

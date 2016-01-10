@@ -195,11 +195,13 @@
                                 {"Fn::Join": [ "", [ "subnetId=", { "Ref": "SubnetId" } ] ]},
 								"instanceId=`curl http://169.254.169.254/latest/meta-data/instance-id`",
                                 "",
-                                "# Install awscli (needed for cloudformation and sns notifications)",
-                                "curl 'https://s3.amazonaws.com/aws-cli/awscli-bundle.zip' -o 'awscli-bundle.zip'",
-                                "yum -y install unzip",
-                                "unzip awscli-bundle.zip",
-                                "./awscli-bundle/install -i /usr/local/aws -b /bin/aws",                                
+                                "# boto3 - used by python scripts to access AWS",
+                                "curl 'https://bootstrap.pypa.io/get-pip.py' -o 'get-pip.py'",
+                                "python get-pip.py",
+                                "pip install boto3",
+                                "mkdir ~/.aws",
+                                "echo '[default]' > ~/.aws/config",
+                                "echo 'region='$region >> ~/.aws/config",
                                 "",
                                 "# Install aws ssm agent (needed for ec2-run-command)",
                                 "mkdir /tmp/ssm",
@@ -221,8 +223,7 @@
                                 "exportfs -a",
                                 "",
                                 "# Install and activate XCP",
-                                "aws s3 cp --region us-west-2 s3://repo.datafabric.io/xcp/xcp-license.xwic .",
-                                "aws s3 cp --region us-west-2 s3://repo.datafabric.io/xcp/xcp-1.1-4b4038d_6_Jan_2016-s3-experimental-build-5.tgz .",
+                                "python -c "import boto3; s3 = boto3.resource('s3'); s3.meta.client.download_file('repo.datafabric.io', 'xcp/xcp-license.xwic', 'xcp-license.xwic'); s3.meta.client.download_file('repo.datafabric.io', 'xcp/xcp-1.1-4b4038d_6_Jan_2016-s3-experimental-build-5.tgz', 'xcp-1.1-4b4038d_6_Jan_2016-s3-experimental-build-5.tgz')"",
                                 "tar xzvf xcp-*.tgz",
                                 "ln -s `pwd`/xcp-*/linux/xcp /usr/bin/xcp",
                                 "mkdir -p /opt/NetApp/xFiles/xcp",
@@ -236,8 +237,7 @@
                                 "chmod +x /opt/NetApp/s3sync/agent/scripts/*",
                                 "",
                                 "# Notify cloudformation and the provided SNS that setup is complete",
-                                "aws cloudformation signal-resource --stack-name $name --region $region --logical-resource-id AgentInstance --status SUCCESS --unique-id $instanceId",
-                                "aws sns publish --region $region --topic-arn $callbackTopic --subject 'deploy-agent-completed' --message '{\"deploy-agent\": { \"vpc-id\": \"'${vpcId}'\", \"subnet-id\": \"'${subnetId}'\", \"instance-id\": \"'${instanceId}'\" }, \"status\": \"success\"}'"
+                                "/opt/NetApp/s3sync/agent/scripts/setup-completed.py --stack-name=$name --sns-topic $callbackTopic"
                             ]
                         ]
                     }
