@@ -9,16 +9,16 @@ function getUsersTable() {
     return new AWS.DynamoDB({params: {TableName: 'users'}});
 }
 
-var validateAndGetUser = function(uuid) {
+var validateAndGetUser = function (uuid) {
     return exports.queryUserByUuid(uuid)
-    // #2 - validate user exists
-    .then(function (usersData) {
-        if (!usersData.Count) {
-            throw new UnauthorizedError();
-        } else {
-            return usersData.Items[0];
-        }
-    });
+        // #2 - validate user exists
+        .then(function (usersData) {
+            if (!usersData.Count) {
+                throw new UnauthorizedError();
+            } else {
+                return usersData.Items[0];
+            }
+        });
 };
 
 exports.queryUserByEmail = function (email) {
@@ -116,16 +116,15 @@ exports.queryClustersBySubnetAndIp = function (subnet, clusterIp) {
     );
 };
 
-exports.createCluster = function (userUuid, region, vpc, subnet, clusterIp, userName, password, clusterType) {
+exports.createCluster = function (userUuid, region, subnet, clusterIp, userName, password, clusterType) {
     var clusters_table = getClustersTable();
     return promisify(
-        'Put item in table ' + clusters_table.config.params.TableName + ' - user uuid=' + userUuid + ', region=' + region + ', vpc=' + vpc + ', subnet=' + subnet + ', cluster ip=' + clusterIp + ', user name=' + userName + ', password=' + password + ', cluster type=' + clusterType,
+        'Put item in table ' + clusters_table.config.params.TableName + ' - user uuid=' + userUuid + ', region=' + region + ', subnet=' + subnet + ', cluster ip=' + clusterIp + ', user name=' + userName + ', password=' + password + ', cluster type=' + clusterType,
         clusters_table.putItem.bind(clusters_table, {
             Item: {
                 user_uuid: {S: userUuid},
                 subnet_mgmt_ip: {S: subnet + ':' + clusterIp},
                 region: {S: region},
-                vpc: {S: vpc},
                 subnet: {S: subnet},
                 cluster_ip: {S: clusterIp},
                 user_name: {S: userName},
@@ -261,7 +260,7 @@ function getCopyConfigurationsTable() {
     return new AWS.DynamoDB({params: {TableName: 'copy_configuration'}});
 }
 
-exports.scanCopyConfigurationByCopyStatus = function(status) {
+exports.scanCopyConfigurationByCopyStatus = function (status) {
     var copy_configuration_table = getCopyConfigurationsTable();
     return promisify(
         'Scan table ' + copy_configuration_table.config.params.TableName + ' by user copy_status=' + status,
@@ -281,8 +280,8 @@ exports.queryCopyConfigurationByUserUuidAndSubnet = function (userUuid, subnet) 
         copy_configuration_table.query.bind(copy_configuration_table, {
             KeyConditionExpression: 'user_uuid = :user_uuid AND subnet = :subnet',
             ExpressionAttributeValues: {
-                ":user_uuid": { S: userUuid },
-                ":subnet": { S: subnet }
+                ":user_uuid": {S: userUuid},
+                ":subnet": {S: subnet}
             }
         })
     );
@@ -310,12 +309,12 @@ exports.createCopyConfiguration = function (userUuid, subnet, source, target, id
         'Put item in table ' + copy_configuration_table.config.params.TableName + ' - user uuid=' + userUuid + ', subnet=' + subnet + ', source=' + source + ', target=' + target,
         copy_configuration_table.putItem.bind(copy_configuration_table, {
             Item: {
-                user_uuid: { S: userUuid },
-                subnet: { S: subnet },
-                source: { S: source },
-                target: { S: target },
-                copy_status: { S: 'not initialized' },
-                id: { S: id }
+                user_uuid: {S: userUuid},
+                subnet: {S: subnet},
+                source: {S: source},
+                target: {S: target},
+                copy_status: {S: 'not initialized'},
+                id: {S: id}
             }
         })
     );
@@ -372,8 +371,8 @@ exports.BadRequestError = BadRequestError;
 ///// END ERRORS /////
 
 ///// UTILS /////
-exports.flatten = function(arrayOfArrays) {
-    return arrayOfArrays.reduce(function(a, b) {
+exports.flatten = function (arrayOfArrays) {
+    return arrayOfArrays.reduce(function (a, b) {
         return a.concat(b);
     });
 };
@@ -381,7 +380,7 @@ exports.flatten = function(arrayOfArrays) {
 function promisify(msg, fn) {
     console.log(msg);
     return new Promise(function (resolve, reject) {
-        fn(function(err, data) {
+        fn(function (err, data) {
             if (err) {
                 var errMsg = 'Failed ' + msg + ': ' + err;
                 console.log(errMsg);
@@ -394,7 +393,7 @@ function promisify(msg, fn) {
     });
 }
 
-exports.eventHandler = function(action, errorHandler) {
+exports.eventHandler = function (action, errorHandler) {
     return function (event, context) {
         console.log('Handling event - ', JSON.stringify(event));
         var initialPromise;
@@ -402,32 +401,34 @@ exports.eventHandler = function(action, errorHandler) {
             initialPromise = action(event);
         } else {
             var userUuid = event['user-uuid'];
-            initialPromise = validateAndGetUser(userUuid).then(function (user) { return action(event, user); });
+            initialPromise = validateAndGetUser(userUuid).then(function (user) {
+                return action(event, user);
+            });
         }
         initialPromise
-        .then(function (data) {
-            if (data) {
-                console.log('Succeeded event handling with response - ' + JSON.stringify(data));
-                context.succeed(data);
-            } else {
-                console.log('Succeeded event handling with no response');
-                context.done();
-            }
-        })
-        .catch(function (err) {
-            console.log('Failed with internal error - ' + err);
-            if (errorHandler) {
-                err = errorHandler(err);
-            }
-            if (err instanceof Error) {
-                err = { code: err.name, message: err.message };
-            } else {
-                err = { code: 'Error', message: err };
-            }
-            err = JSON.stringify(err);
-            console.log('Failed event handling with response - ' + err);
-            context.fail(err);
-        });
+            .then(function (data) {
+                if (data) {
+                    console.log('Succeeded event handling with response - ' + JSON.stringify(data));
+                    context.succeed(data);
+                } else {
+                    console.log('Succeeded event handling with no response');
+                    context.done();
+                }
+            })
+            .catch(function (err) {
+                console.log('Failed with internal error - ' + err);
+                if (errorHandler) {
+                    err = errorHandler(err);
+                }
+                if (err instanceof Error) {
+                    err = {code: err.name, message: err.message};
+                } else {
+                    err = {code: 'Error', message: err};
+                }
+                err = JSON.stringify(err);
+                console.log('Failed event handling with response - ' + err);
+                context.fail(err);
+            });
     };
 };
 
@@ -471,7 +472,7 @@ exports.executeCommand = function (region, instance, awsAccessKey, awsSecretKey,
         })
     )
         // #2 execute the SSM document
-        .then(function(data) {
+        .then(function (data) {
             return promisify(
                 'Send command document - region=' + region + ', instance=' + instance + ', aws access key=' + awsAccessKey + ', aws secret key=' + awsSecretKey + ', command name=' + commandName + ', command=' + command,
                 ssm.sendCommand.bind(ssm, {
@@ -482,7 +483,7 @@ exports.executeCommand = function (region, instance, awsAccessKey, awsSecretKey,
         })
 
         // #3 delete the SSM document and return the execute command result
-        .then(function(executeCommandData) {
+        .then(function (executeCommandData) {
             return promisify(
                 'Delete command document - region=' + region + ', instance=' + instance + ', aws access key=' + awsAccessKey + ', aws secret key=' + awsSecretKey + ', command name=' + commandName + ', command=' + command,
                 ssm.deleteDocument.bind(ssm, {
@@ -508,7 +509,7 @@ function getS3(awsAccessKey, awsSecretKey) {
     });
 }
 
-exports.listBuckets = function(awsAccessKey, awsSecretKey) {
+exports.listBuckets = function (awsAccessKey, awsSecretKey) {
     var s3 = getS3(awsAccessKey, awsSecretKey);
 
     return promisify(
@@ -527,7 +528,7 @@ function getCloudWatch(awsAccessKey, awsSecretKey) {
     });
 }
 
-exports.getBucketHourlyAverageMetricStats = function(awsAccessKey, awsSecretKey, bucketName, metricName, startTime, endTime) {
+exports.getBucketHourlyAverageMetricStats = function (awsAccessKey, awsSecretKey, bucketName, metricName, startTime, endTime) {
     var cw = getCloudWatch(awsAccessKey, awsSecretKey);
 
     return promisify(
@@ -564,13 +565,13 @@ function getEC2(awsAccessKey, awsSecretKey, region) {
     });
 }
 
-exports.describeSubnets = function(awsAccessKey, awsSecretKey, region, subnet) {
+exports.describeSubnets = function (awsAccessKey, awsSecretKey, region, subnet) {
     var ec2 = getEC2(awsAccessKey, awsSecretKey, region);
 
     var funcWithCallback;
     if (subnet) {
         funcWithCallback = ec2.describeSubnets.bind(ec2, {
-            SubnetIds: [ subnet ]
+            SubnetIds: [subnet]
         });
     } else {
         funcWithCallback = ec2.describeSubnets.bind(ec2);
@@ -582,7 +583,7 @@ exports.describeSubnets = function(awsAccessKey, awsSecretKey, region, subnet) {
     )
 };
 
-exports.describeKeyPairs = function(awsAccessKey, awsSecretKey, region) {
+exports.describeKeyPairs = function (awsAccessKey, awsSecretKey, region) {
     var ec2 = getEC2(awsAccessKey, awsSecretKey, region);
 
     return promisify(
@@ -591,7 +592,7 @@ exports.describeKeyPairs = function(awsAccessKey, awsSecretKey, region) {
     );
 };
 
-exports.describeRegionNames = function(awsAccessKey, awsSecretKey) {
+exports.describeRegionNames = function (awsAccessKey, awsSecretKey) {
     var ec2 = getEC2(awsAccessKey, awsSecretKey, undefined);
 
     return promisify(
@@ -600,7 +601,7 @@ exports.describeRegionNames = function(awsAccessKey, awsSecretKey) {
     )
 
         .then(function (data) {
-            return Object.keys(data.Regions).map(function(key){
+            return Object.keys(data.Regions).map(function (key) {
                 return data.Regions[key].RegionName;
             });
         });
@@ -608,8 +609,8 @@ exports.describeRegionNames = function(awsAccessKey, awsSecretKey) {
 ///// END EC2 /////
 
 ///// GET URL CONTENT /////
-exports.getUrlContent = function(host, port, path) {
-    var httpGetWithCallback = function(callback) {
+exports.getUrlContent = function (host, port, path) {
+    var httpGetWithCallback = function (callback) {
         var requestOptions = {
             method: 'GET',
             host: host,
@@ -617,7 +618,7 @@ exports.getUrlContent = function(host, port, path) {
             path: path
         };
 
-        var requestCallback = function(response) {
+        var requestCallback = function (response) {
             var str = '';
 
             response.on('data', function (chunk) {
@@ -634,7 +635,7 @@ exports.getUrlContent = function(host, port, path) {
         request.end();
 
         request.on('error', function (e) {
-           callback(e);
+            callback(e);
         });
     };
 
@@ -646,7 +647,7 @@ exports.getUrlContent = function(host, port, path) {
 ///// END GET URL CONTENT /////
 
 ///// CREATE CF STACK /////
-exports.createCFStack = function(awsAccessKey, awsSecretKey, region, vpc, subnet, keypair, name, template) {
+exports.createCFStack = function (awsAccessKey, awsSecretKey, region, vpc, subnet, keypair, name, template) {
     var cf = new AWS.CloudFormation({
         region: region,
         accessKeyId: awsAccessKey,
@@ -658,8 +659,8 @@ exports.createCFStack = function(awsAccessKey, awsSecretKey, region, vpc, subnet
         cf.createStack.bind(cf, {
             StackName: name + new Date().getTime(),
             TemplateBody: template,
-            Capabilities: [ 'CAPABILITY_IAM' ],
-            NotificationARNs: [ exports.sns_topic ],
+            Capabilities: ['CAPABILITY_IAM'],
+            NotificationARNs: [exports.sns_topic],
             Parameters: [
                 {
                     ParameterKey: 'VpcId',

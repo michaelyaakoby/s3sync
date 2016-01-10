@@ -17,6 +17,7 @@ var common = require('./common.js');
 // cluster-mgmt-ip
 // user-name
 // password
+// cluster-type
 exports.handler = common.eventHandler(
     function (event, user) {
         var userUuid = event['user-uuid'];
@@ -31,10 +32,10 @@ exports.handler = common.eventHandler(
                         var clusters = [];
                         data.Items.map(function (cluster) {
                             clusters.push({
-                                'cluster-ip': cluster.cluster_ip.S,
+                                ip: cluster.cluster_ip.S,
                                 subnet: cluster.subnet.S,
                                 region: cluster.region.S,
-                                'cluster-type': cluster.cluster_type.S
+                                type: cluster.cluster_type.S
                             });
                         });
                         return clusters;
@@ -43,7 +44,7 @@ exports.handler = common.eventHandler(
 
             case 'POST':
                 // #1 - create cluster for user
-                return common.createCluster(userUuid, event.region, event.vpc, event.subnet, event['cluster-mgmt-ip'], event['user-name'], event.password);
+                return common.createCluster(userUuid, event.region, event.subnet, event['cluster-mgmt-ip'], event['user-name'], event.password, event['cluster-type']);
                 break;
 
         }
