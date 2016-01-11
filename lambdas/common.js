@@ -286,6 +286,19 @@ exports.queryCopyConfigurationByUserUuidAndSubnet = function (userUuid, subnet) 
     );
 };
 
+exports.queryCopyConfigurationByUserUuid = function (userUuid) {
+    var copy_configuration_table = getCopyConfigurationsTable();
+    return promisify(
+        'Query table ' + copy_configuration_table.config.params.TableName + ' by user uuid=' + userUuid,
+        copy_configuration_table.query.bind(copy_configuration_table, {
+            KeyConditionExpression: 'user_uuid = :user_uuid',
+            ExpressionAttributeValues: {
+                ":user_uuid": {S: userUuid}
+            }
+        })
+    );
+};
+
 exports.queryCopyConfigurationBySubnetAndId = function (subnet, id) {
     var copy_configuration_table = getCopyConfigurationsTable();
     return promisify(

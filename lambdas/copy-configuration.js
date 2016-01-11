@@ -24,22 +24,27 @@ exports.handler = common.eventHandler(
         switch (event['http-method']) {
             case 'GET':
                 // #1 query for copy configuration data by user's uuid and subnet
-                return common.queryCopyConfigurationByUserUuidAndSubnet(userUuid, event.subnet)
+                var copyConfigurationPromise;
 
-                    // #2 format and return the response
-                    .then(function (data) {
-                        var results = [];
-                        data.Items.map(function (item) {
-                            results.push({
-                                id: item.id.S,
-                                status: item.copy_status.S,
-                                source: item.copy_source.S,
-                                target: item.target.S
-                            });
+                if (event.subnet) {
+                    copyConfigurationPromise = common.queryCopyConfigurationByUserUuidAndSubnet(userUuid, event.subnet);
+                } else {
+                    copyConfigurationPromise = common.queryCopyConfigurationByUserUuid(userUuid);
+                }
+
+                return copyConfigurationPromise.then(function (data) {
+                    var results = [];
+                    data.Items.map(function (item) {
+                        results.push({
+                            id: item.id.S,
+                            status: item.copy_status.S,
+                            source: item.copy_source.S,
+                            target: item.target.S
                         });
-
-                        return results;
                     });
+
+                    return results;
+                });
 
                 break;
 
