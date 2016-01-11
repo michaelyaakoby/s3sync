@@ -33,17 +33,17 @@ exports.handler = common.eventHandler(
                             results.push({
                                 id: item.id.S,
                                 status: item.copy_status.S,
-                                source: item.source.S,
+                                source: item.copy_source.S,
                                 target: item.target.S
                             });
                         });
+
                         return results;
                     });
+
                 break;
 
             case 'POST':
-                var id = common.uuid();
-
                 // #1.1 query for agent for user's uuid and subnet and return the instance id or fail
                 var agentInstanceIdPromise = common.queryAgentByUserUuidAndSubnet(userUuid, event.subnet)
                     .then(function (agentsData) {
@@ -56,16 +56,27 @@ exports.handler = common.eventHandler(
                         }
                     });
 
-                // #1.2 create copy configuration record
-                var createCopyConfigurationPromise = common.createCopyConfiguration(userUuid, event.subnet, event.source, event.target, id);
+                var copyConfigurationId;
+                // #1.2 create copy configuration record if not exists
+                var copyConfigurationIdPromise = common.queryCopyConfigurationByUserUuidAndSubnetAndParams(userUuid, event.subnet, event.source, event.target).then(function (copyConfiguration) {
+                    if (!copyConfiguration.Count) {
+                        copyConfigurationId = common.uuid();
+                        return common.createCopyConfiguration(userUuid, event.subnet, event.source, event.target, copyConfigurationId);
+                    } else {
+                        copyConfigurationId = copyConfiguration.Items[0].id.S;
+                        return null;
+                    }
+                });
 
                 // #2 wait for the promises to complete and execute copy to s3
-                return Promise.join(agentInstanceIdPromise, createCopyConfigurationPromise, function (agentInstanceId) {
-                    var target = event.target + '/' + id;
-                    var command = '/opt/NetApp/s3sync/agent/scripts/copy-to-s3.py  -s ' + event.source + ' -t ' + target + ' -c ' + id + ' -n ' + common.sns_topic;
+                return Promise.join(agentInstanceIdPromise, copyConfigurationIdPromise, function (agentInstanceId) {
+                    var target = event.target + '/' + copyConfigurationId;
+                    var command = '/opt/NetApp/s3sync/agent/scripts/copy-to-s3.py  -s ' + event.source + ' -t ' + target + ' -c ' + copyConfigurationId + ' -n ' + common.sns_topic;
                     return common.executeCommand(event.region, agentInstanceId, user.aws_access_key.S, user.aws_secret_key.S, 'Copy', command);
-                }).then(function(){
+                }).then(function () {
+                    return copyConfigurationId;
                 });
+
                 break;
         }
     }

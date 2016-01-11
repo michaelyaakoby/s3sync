@@ -310,7 +310,7 @@ exports.createCopyConfiguration = function (userUuid, subnet, source, target, id
             Item: {
                 user_uuid: {S: userUuid},
                 subnet: {S: subnet},
-                source: {S: source},
+                copy_source: {S: source},
                 target: {S: target},
                 copy_status: {S: 'not initialized'},
                 id: {S: id}
@@ -333,6 +333,23 @@ exports.updateCopyConfiguration = function (userUuid, subnet, id, status) {
             "ExpressionAttributeValues": {
                 ":copy_status": {S: status},
                 ":id": {S: id}
+            }
+        })
+    );
+};
+
+exports.queryCopyConfigurationByUserUuidAndSubnetAndParams = function (userUuid, subnet, source, target) {
+    var copy_configuration_table = getCopyConfigurationsTable();
+    return promisify(
+        'Query table ' + copy_configuration_table.config.params.TableName + ' by user uuid=' + userUuid + ', subnet=' + subnet + ', source=' + source + ', target=' + target,
+        copy_configuration_table.query.bind(copy_configuration_table, {
+            KeyConditionExpression: 'user_uuid = :user_uuid AND subnet = :subnet',
+            FilterExpression: "copy_source = :copy_source AND target = :target",
+            ExpressionAttributeValues: {
+                ":user_uuid": {S: userUuid},
+                ":subnet": {S: subnet},
+                ":copy_source": {S: source},
+                ":target": {S: target}
             }
         })
     );
