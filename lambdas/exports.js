@@ -30,10 +30,14 @@ exports.handler = common.eventHandler(
             // #3 - get cluster password
             .then(function (agent) {
                 return common.queryClustersBySubnetAndIp(event.subnet, event['cluster-mgmt-ip']).then(function (cluster) {
-                    return {
-                        agent: agent,
-                        clusterPassword: cluster.password
-                    };
+                    if (cluster.Count == 0) {
+                        throw new common.NotFoundError('No cluster found for subnet ' + event.subnet + ' and cluster mgmt ip ' + event['cluster-mgmt-ip']);
+                    } else {
+                        return {
+                            agent: agent,
+                            clusterPassword: cluster.Items[0].password.S
+                        };
+                    }
                 });
             })
 
@@ -43,7 +47,7 @@ exports.handler = common.eventHandler(
                 var awsAccessKey = user.aws_access_key.S;
                 var awsSecretKey = user.aws_secret_key.S;
                 var command = '/opt/NetApp/s3sync/agent/scripts/find-exports.py --address ' + event['cluster-mgmt-ip'] + ' --user admin --password ' + info.clusterPassword + ' --sns-topic ' + common.sns_topic;
-                return common.executeCommand(event.region, instance, awsAccessKey, awsSecretKey, 'Export', command);
+                common.executeCommand(event.region, instance, awsAccessKey, awsSecretKey, 'Export', command);
             })
 
             // #4 query list of exports
