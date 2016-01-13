@@ -1,4 +1,5 @@
 var common = require('./common');
+var AWS = require('aws-sdk');
 var Promise = require("bluebird");
 
 // Returns/creates user's agents
@@ -23,19 +24,22 @@ exports.handler = common.eventHandler(
         switch (event['http-method']) {
             case 'GET':
                 // #1 query for user agents by subnet
-                return exports.queryAgentByUserUuidAndSubnet(userUuid, event.subnet)
+                return common.queryAgentByUserUuidAndSubnet(userUuid, event.subnet)
 
                     // #2 format the response
                     .then(function (agentsData) {
-                        var agents = [];
-                        agentsData.Items.map(function (agent) {
-                            agents.push({
+                        return agentsData.Items.map(function (agent) {
+                            return {
                                 instance: agent.instance.S,
-                                'agent-status': agent.agent_status.S
-                            });
+                                region: agent.region.S
+                            };
                         });
-                        return agents;
+                    })
+
+                    .map(function (agent) {
+                        return common.describeInstanceStatus(agent.instance, user.aws_access_key.S, user.aws_secret_key.S, agent.region);
                     });
+
                 break;
 
             case 'POST':

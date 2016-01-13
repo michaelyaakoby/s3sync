@@ -28,7 +28,6 @@ exports.handler = common.eventHandler(
         switch (subject) {
 
             case 'deploy-agent-completed':
-                var status = message.status;
                 var agentInfo = message['deploy-agent'];
                 var subnet = agentInfo['subnet-id'];
                 var instance = agentInfo['instance-id'];
@@ -47,7 +46,7 @@ exports.handler = common.eventHandler(
 
                     // #3 update agent record with instance id
                     .then(function (user_uuid) {
-                        return common.updateAgent(user_uuid, subnet, instance, status);
+                        return common.updateAgent(user_uuid, subnet, instance);
                     });
                 break;
 

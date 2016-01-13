@@ -149,8 +149,7 @@ exports.createAgent = function (userUuid, region, subnet) {
             Item: {
                 user_uuid: {S: userUuid},
                 region: {S: region},
-                subnet: {S: subnet},
-                agent_status: {S: 'initializing'}
+                subnet: {S: subnet}
             }
         })
     );
@@ -184,19 +183,18 @@ exports.queryAgentBySubnet = function (subnet) {
     );
 };
 
-exports.updateAgent = function (userUuid, subnet, instance, status) {
+exports.updateAgent = function (userUuid, subnet, instance) {
     var agents_table = getAgentsTable();
     return promisify(
-        'Update item in table ' + agents_table.config.params.TableName + ' - user uuid=' + userUuid + ', subnet=' + subnet + ', instance=' + instance + ', status=' + status,
+        'Update item in table ' + agents_table.config.params.TableName + ' - user uuid=' + userUuid + ', subnet=' + subnet + ', instance=' + instance,
         agents_table.updateItem.bind(agents_table, {
             "Key": {
                 "user_uuid": {S: userUuid},
                 "subnet": {S: subnet}
             },
-            "UpdateExpression": "SET instance = :instance, agent_status = :agent_status",
+            "UpdateExpression": "SET instance = :instance",
             "ExpressionAttributeValues": {
-                ":instance": {S: instance},
-                ":agent_status": {S: status}
+                ":instance": {S: instance}
             }
         })
     );
@@ -633,6 +631,34 @@ exports.describeRegionNames = function (awsAccessKey, awsSecretKey) {
             return Object.keys(data.Regions).map(function (key) {
                 return data.Regions[key].RegionName;
             });
+        });
+};
+
+exports.describeInstanceStatus = function (instanceId, awsAccessKey, awsSecretKey, region) {
+    var ec2 = getEC2(awsAccessKey, awsSecretKey, region);
+
+    return promisify(
+        'Describe instance status - instance id=' + instanceId + ', aws access key=' + awsAccessKey + ', aws secret key=' + awsSecretKey + ', region=' + region,
+        ec2.describeInstanceStatus.bind(ec2, {
+            InstanceIds: [instanceId]
+        }))
+        .then(function (instanceStatus) {
+            var status = instanceStatus.InstanceStatuses[0];
+            return {
+                instance: status.InstanceId,
+                region: region,
+                instanceState: status.InstanceState,
+                systemStatus: status.SystemStatus,
+                instanceStatus: status.InstanceStatus
+            };
+        }, function () {
+            return {
+                instance: status.InstanceId,
+                region: region,
+                instanceState: 'unknown',
+                systemStatus: 'unknown',
+                instanceStatus: 'unknown'
+            }
         });
 };
 ///// END EC2 /////
