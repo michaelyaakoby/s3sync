@@ -14,7 +14,7 @@ def usage():
   sys.exit(2)
 
 try:
-  opts, args = getopt.getopt(sys.argv[1:], "r:a:u:p:z:s:", ["request-id=", "address=", "user=", "password=", "zapi=", "sns-topic="])
+  opts, args = getopt.getopt(sys.argv[1:], "r:a:u:p:z:s:", ["request-id=", "address=", "user=", "password=", "request=", "sns-topic="])
 except getopt.GetoptError:
   usage()
 
