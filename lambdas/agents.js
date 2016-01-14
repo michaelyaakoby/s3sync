@@ -23,12 +23,16 @@ exports.handler = common.eventHandler(
 
         switch (event['http-method']) {
             case 'GET':
-                // #1 query for user agents by subnet
-                return common.queryAgentByUserUuidAndSubnet(userUuid, event.subnet)
+                var agentsPromise;
+                if (event.subnet) {
+                    agentsPromise = common.queryAgentByUserUuidAndSubnet(userUuid, event.subnet);
+                } else {
+                    agentsPromise = common.queryAgentByUserUuid(userUuid);
+                }
 
-                    // #2 format the response
-                    .then(function (agentsData) {
-                        return agentsData.Items.map(function (agent) {
+                return agentsPromise
+                    .then(function (agents) {
+                        return agents.Items.map(function (agent) {
                             return {
                                 instance: agent.instance.S,
                                 region: agent.region.S

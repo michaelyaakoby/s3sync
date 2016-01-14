@@ -169,6 +169,19 @@ exports.queryAgentByUserUuidAndSubnet = function (userUuid, subnet) {
     );
 };
 
+exports.queryAgentByUserUuid = function (userUuid) {
+    var agents_table = getAgentsTable();
+    return promisify(
+        'Query table ' + agents_table.config.params.TableName + ' by user uuid=' + userUuid,
+        agents_table.query.bind(agents_table, {
+            KeyConditionExpression: 'user_uuid = :user_uuid',
+            ExpressionAttributeValues: {
+                ":user_uuid": {S: userUuid}
+            }
+        })
+    );
+};
+
 exports.queryAgentBySubnet = function (subnet) {
     var agents_table = getAgentsTable();
     return promisify(
