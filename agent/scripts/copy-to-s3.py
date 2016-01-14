@@ -4,7 +4,6 @@ import os
 import sys
 import getopt
 import metadata
-import re
 import boto3
 
 def usage():
@@ -31,17 +30,12 @@ for opt, arg in opts:
 if sourceNfsUrl is None or targetS3Url is None or copyId is None:
   usage()
 
-nfsPattern = re.compile('nfs://([^/]+)(.*)')
-(nfsAddress, nfsPath) = nfsPattern.match(sourceNfsUrl).groups()
-nfsSource = nfsAddress + ":" + nfsPath
-print "NFS Source: " + nfsSource
-
 if os.path.exists('/catalog/catalog/indexes/' + copyId):
   print "Starting incremental copy to: " + targetS3Url
   os.system("xcp sync -id " + copyId)
 else:
   print "Starting basling copy to: " + targetS3Url
-  os.system("xcp copy -newid " + copyId + " " + nfsSource + " " + targetS3Url)
+  os.system("xcp copy -newid " + copyId + " " + metadata.toNfsPath(sourceNfsUrl) + " " + targetS3Url)
 print "Copy completed"
 
 if snsTopic is not None:
