@@ -12,7 +12,6 @@ var common = require('./common.js');
 // http-method
 // user-uuid
 // region
-// vpc
 // subnet
 // cluster-mgmt-ip
 // user-name
@@ -29,17 +28,43 @@ exports.handler = common.eventHandler(
 
                     // #2 - parse the saved clusters and return them
                     .then(function (data) {
-                        var clusters = [];
-                        data.Items.map(function (cluster) {
-                            clusters.push({
+                        return data.Items.map(function (cluster) {
+                            return {
                                 ip: cluster.cluster_ip.S,
                                 subnet: cluster.subnet.S,
                                 region: cluster.region.S,
-                                type: cluster.cluster_type.S
-                            });
+                                type: cluster.cluster_type.S,
+                                username: cluster.user_name.S,
+                                password: cluster.password.S
+                            };
                         });
-                        return clusters;
+                    })
+                    .map(function (cluster) {
+                        return common.queryAgentBySubnet(cluster.subnet).then(function (agent) {
+                            if (agent.Count == 1) {
+                                var request = "'<netapp><cluster-identity-get><desired-attributes><cluster-identity-info><cluster-name></cluster-name><cluster-uuid></cluster-uuid></cluster-identity-info></desired-attributes></cluster-identity-get></netapp>'";
+
+                                var uuid = common.uuid();
+
+                                var command = '/opt/NetApp/s3sync/agent/scripts/invoke-zapi.py --address ' + event['cluster-mgmt-ip'] + ' --user ' + cluster.username + ' --password ' + cluster.password + ' --sns-topic ' + common.sns_topic + ' --request ' + request + ' --request-id ' + uuid;
+
+                                return common.executeCommand(cluster.region, agent.Items[0].instance.S, user.aws_access_key.S, user.aws_secret_key.S, 'Generic_ZAPI', command).then(function () {
+                                    return {
+                                        cluster: {
+                                            ip: cluster.ip,
+                                            type: cluster.type,
+                                            region: cluster.region,
+                                            subnet: cluster.subnet
+                                        },
+                                        requestId: uuid
+                                    }
+                                });
+                            } else {
+                                throw new common.NotFoundError('No agent found for subnet ' + cluster.subnet);
+                            }
+                        });
                     });
+
                 break;
 
             case 'POST':

@@ -35,7 +35,8 @@ exports.handler = common.eventHandler(
                     } else {
                         return {
                             agent: agent,
-                            clusterPassword: cluster.Items[0].password.S
+                            username: cluster.Items[0].user_name.S,
+                            password: cluster.Items[0].password.S
                         };
                     }
                 });
@@ -46,7 +47,7 @@ exports.handler = common.eventHandler(
                 var instance = info.agent.instance.S;
                 var awsAccessKey = user.aws_access_key.S;
                 var awsSecretKey = user.aws_secret_key.S;
-                var command = '/opt/NetApp/s3sync/agent/scripts/find-exports.py --address ' + event['cluster-mgmt-ip'] + ' --user admin --password ' + info.clusterPassword + ' --sns-topic ' + common.sns_topic;
+                var command = '/opt/NetApp/s3sync/agent/scripts/find-exports.py --address ' + event['cluster-mgmt-ip'] + ' --user ' + info.username + ' --password ' + info.password + ' --sns-topic ' + common.sns_topic;
                 common.executeCommand(event.region, instance, awsAccessKey, awsSecretKey, 'Export', command);
             })
 
