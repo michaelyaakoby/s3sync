@@ -37,7 +37,7 @@ exports.handler = common.eventHandler(
                     })
 
                     .map(function (agent) {
-                        return common.describeInstanceStatus(agent.instance, user.aws_access_key.S, user.aws_secret_key.S, agent.region);
+                        return common.describeInstance(agent.instance, user.aws_access_key.S, user.aws_secret_key.S, agent.region);
                     });
 
                 break;

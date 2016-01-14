@@ -634,30 +634,27 @@ exports.describeRegionNames = function (awsAccessKey, awsSecretKey) {
         });
 };
 
-exports.describeInstanceStatus = function (instanceId, awsAccessKey, awsSecretKey, region) {
+exports.describeInstance = function (instanceId, awsAccessKey, awsSecretKey, region) {
     var ec2 = getEC2(awsAccessKey, awsSecretKey, region);
 
     return promisify(
-        'Describe instance status - instance id=' + instanceId + ', aws access key=' + awsAccessKey + ', aws secret key=' + awsSecretKey + ', region=' + region,
-        ec2.describeInstanceStatus.bind(ec2, {
+        'Describe instance - instance id=' + instanceId + ', aws access key=' + awsAccessKey + ', aws secret key=' + awsSecretKey + ', region=' + region,
+        ec2.describeInstances.bind(ec2, {
             InstanceIds: [instanceId]
         }))
-        .then(function (instanceStatus) {
-            var status = instanceStatus.InstanceStatuses[0];
+        .then(function (data) {
+            console.log(JSON.stringify(data));
+            var instance = data.Reservations[0].Instances[0];
             return {
-                instance: status.InstanceId,
+                instance: instance.InstanceId,
                 region: region,
-                instanceState: status.InstanceState,
-                systemStatus: status.SystemStatus,
-                instanceStatus: status.InstanceStatus
+                state: instance.State
             };
         }, function () {
             return {
                 instance: status.InstanceId,
                 region: region,
-                instanceState: 'unknown',
-                systemStatus: 'unknown',
-                instanceStatus: 'unknown'
+                state: 'unknown'
             }
         });
 };
