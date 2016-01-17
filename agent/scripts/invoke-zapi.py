@@ -37,18 +37,27 @@ for opt, arg in opts:
 if address is None or username is None or password is None or requestXml is None:
   usage()
 
-ns = {'na': 'http://www.netapp.com/filer/admin'}
-
-httpResponse = requests.post('http://' + address + '/servlets/netapp.servlets.admin.XMLrequest_filer', auth=(username, password), data=requestXml) 
-if httpResponse.status_code != 200:
-  raise IOError("Request failed " + str(httpResponse.status_code) + ": " + httpResponse.text)
-responseText = httpResponse.text
-responseXml = ET.fromstring(responseText)
-if responseXml.find('na:results', ns).attrib['status'] == "failed":
-  raise IOError("Request failed: " + responseXml.find('na:results', ns).attrib['reason'])
-
-print '------- Response ---------'
-print responseText
+try:
+  ns = {'na': 'http://www.netapp.com/filer/admin'}
+  
+  httpResponse = requests.post('http://' + address + '/servlets/netapp.servlets.admin.XMLrequest_filer', auth=(username, password), data=requestXml) 
+  if httpResponse.status_code != 200:
+    raise IOError("Request failed " + str(httpResponse.status_code) + ": " + httpResponse.text)
+  responseText = httpResponse.text
+  responseXml = ET.fromstring(responseText)
+  if responseXml.find('na:results', ns).attrib['status'] == "failed":
+    raise IOError("Request failed: " + responseXml.find('na:results', ns).attrib['reason'])
+  
+  print '------- Response ---------'
+  print responseText
+except Exception as e: 
+  if snsTopic is not None:
+    boto3.client('sns').publish(
+      TopicArn=snsTopic, 
+      Subject='invoke-zapi', 
+      Message='{"request-id": "' + requestId + '", "instance-id": "' + metadata.instanceId + '", "failed": "' + str(e) + '"}'
+    )
+  raise
 
 if snsTopic is not None:
   boto3.client('sns').publish(
