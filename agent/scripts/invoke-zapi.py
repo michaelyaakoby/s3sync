@@ -50,6 +50,7 @@ try:
   
   print '------- Response ---------'
   print responseText
+
 except Exception as e: 
   if snsTopic is not None:
     boto3.client('sns').publish(

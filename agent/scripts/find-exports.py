@@ -44,16 +44,26 @@ def measureExport(export):
   )
   return measurement
 
-foundExports = exports.findExports(address, username, password)
-print 'Exports >>> ' +  str(foundExports)
-
-if snsTopic is not None:
-  jsonExports = json.dumps(foundExports)
-  boto3.client('sns').publish(
-    TopicArn=snsTopic, 
-    Subject='find-exports', 
-    Message='{"instance-id": "' + metadata.instanceId + '", "find-exports": { "cluster-mgmt-ip": "' + address + '", "subnet-id": "' + metadata.subnetId +'", "exports": ' + jsonExports + ' }}'
-  )
+try:
+  foundExports = exports.findExports(address, username, password)
+  print 'Exports >>> ' +  str(foundExports)
   
-  for export in foundExports:
-    print 'Measured >> ' + str(measureExport(export))
+  if snsTopic is not None:
+    jsonExports = json.dumps(foundExports)
+    boto3.client('sns').publish(
+      TopicArn=snsTopic, 
+      Subject='find-exports', 
+      Message='{"instance-id": "' + metadata.instanceId + '", "find-exports": { "cluster-mgmt-ip": "' + address + '", "subnet-id": "' + metadata.subnetId +'", "exports": ' + jsonExports + ' }}'
+    )
+    
+    for export in foundExports:
+      print 'Measured >> ' + str(measureExport(export))
+
+except Exception as e: 
+  if snsTopic is not None:
+    boto3.client('sns').publish(
+      TopicArn=snsTopic, 
+      Subject='invoke-zapi', 
+      Message='{"instance-id": "' + metadata.instanceId + '", "failed": "' + str(e) + '"}'
+	)
+  raise

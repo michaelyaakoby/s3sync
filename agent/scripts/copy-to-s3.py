@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+import subprocess
 import os
 import sys
 import getopt
@@ -33,10 +34,10 @@ if sourceNfsUrl is None or targetS3Url is None or copyId is None:
 try:
   if os.path.exists('/catalog/catalog/indexes/' + copyId):
     print "Starting incremental copy to: " + targetS3Url
-    os.system("xcp sync -id " + copyId)
+    subprocess.check_output("xcp sync -id " + copyId, shell=True)
   else:
     print "Starting basling copy to: " + targetS3Url
-    os.system("xcp copy -newid " + copyId + " " + metadata.toNfsPath(sourceNfsUrl) + " " + targetS3Url)
+    subprocess.check_output("xcp copy -newid " + copyId + " " + metadata.toNfsPath(sourceNfsUrl) + " " + targetS3Url, shell=True)
   print "Copy completed"
 except Exception as e: 
   if snsTopic is not None:
