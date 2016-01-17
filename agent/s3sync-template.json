@@ -74,7 +74,8 @@
                                     "Effect": "Allow",
                                     "Action": [
                                         "ec2:DescribeInstanceStatus",
-                                        "cloudformation:SignalResource"
+                                        "cloudformation:SignalResource",
+                                        "SNS:Publish"
                                     ],
                                     "Resource": "*"
                                 },
@@ -109,13 +110,6 @@
                                         "s3:ListAllMyBuckets"
                                     ],
                                     "Resource": "*"
-                                },
-                                {
-                                    "Effect": "Allow",
-                                    "Action": [
-                                        "SNS:Publish"
-                                    ],
-                                    "Resource": { "Fn::Select" : [ "0", { "Ref" : "AWS::NotificationARNs" } ] }
                                 }
                             ]
                         },
