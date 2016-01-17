@@ -31,6 +31,7 @@ exports.handler = common.eventHandler(
                         return data.Items.map(function (cluster) {
                             return {
                                 ip: cluster.cluster_ip.S,
+                                name: cluster.cluster_name.S,
                                 subnet: cluster.subnet.S,
                                 region: cluster.region.S,
                                 type: cluster.cluster_type.S,
@@ -42,16 +43,17 @@ exports.handler = common.eventHandler(
                     .map(function (cluster) {
                         return common.queryAgentBySubnet(cluster.subnet).then(function (agent) {
                             if (agent.Count == 1) {
-                                var request = "'<netapp><cluster-identity-get><desired-attributes><cluster-identity-info><cluster-name></cluster-name><cluster-uuid></cluster-uuid></cluster-identity-info></desired-attributes></cluster-identity-get></netapp>'";
+                                var request = "'<netapp><volume-get-iter><desired-attributes><volume-attributes><volume-id-attributes><name/></volume-id-attributes><volume-space-attributes><size/></volume-space-attributes></volume-attributes></desired-attributes></volume-get-iter></netapp>'";
 
                                 var uuid = common.uuid();
 
-                                var command = '/opt/NetApp/s3sync/agent/scripts/invoke-zapi.py --address ' + event['cluster-mgmt-ip'] + ' --user ' + cluster.username + ' --password ' + cluster.password + ' --sns-topic ' + common.sns_topic + ' --request ' + request + ' --request-id ' + uuid;
+                                var command = '/opt/NetApp/s3sync/agent/scripts/invoke-zapi.py --address ' + cluster.ip + ' --user ' + cluster.username + ' --password ' + cluster.password + ' --sns-topic ' + common.sns_topic + ' --request ' + request + ' --request-id ' + uuid;
 
                                 return common.executeCommand(cluster.region, agent.Items[0].instance.S, user.aws_access_key.S, user.aws_secret_key.S, 'Generic_ZAPI', command).then(function () {
                                     return {
                                         cluster: {
                                             ip: cluster.ip,
+                                            name: cluster.name,
                                             type: cluster.type,
                                             region: cluster.region,
                                             subnet: cluster.subnet
