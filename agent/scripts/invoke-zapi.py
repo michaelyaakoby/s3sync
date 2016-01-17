@@ -5,6 +5,7 @@ import requests
 import xml.etree.ElementTree as ET
 import getopt
 import json
+import xmltodict
 import metadata
 import boto3
 
@@ -19,8 +20,11 @@ except getopt.GetoptError:
   usage()
 
 requestId = address = userName = password = snsTopic = requestXml = None
+jsonOutput = False
 
 for opt, arg in opts:
+  if opt in ("-j", "--json"):
+    jsonOutput = True
   if opt in ("-r", "--request-id"):
     requestId = arg
   if opt in ("-a", "--address"):
@@ -48,6 +52,8 @@ try:
   if responseXml.find('na:results', ns).attrib['status'] == "failed":
     raise IOError("Request failed: " + responseXml.find('na:results', ns).attrib['reason'])
   
+  responseText = json.dumps(xmltodict.parse(responseText))
+  
   print '------- Response ---------'
   print responseText
 
@@ -64,5 +70,5 @@ if snsTopic is not None:
   boto3.client('sns').publish(
     TopicArn=snsTopic, 
     Subject='invoke-zapi', 
-    Message='{"request-id": "' + requestId + '", "instance-id": "' + metadata.instanceId + '", "invoke-zapi": { "cluster-mgmt-ip": "' + address + '", "subnet-id": "' + metadata.subnetId + '", "response": "' + responseText + '"}}'
+    Message='{"request-id": "' + requestId + '", "instance-id": "' + metadata.instanceId + '", "invoke-zapi": { "cluster-mgmt-ip": "' + address + '", "subnet-id": "' + metadata.subnetId + '", "response": ' + str(responseText) + '}}'
   )
