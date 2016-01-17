@@ -30,13 +30,22 @@ for opt, arg in opts:
 if sourceNfsUrl is None or targetS3Url is None or copyId is None:
   usage()
 
-if os.path.exists('/catalog/catalog/indexes/' + copyId):
-  print "Starting incremental copy to: " + targetS3Url
-  os.system("xcp sync -id " + copyId)
-else:
-  print "Starting basling copy to: " + targetS3Url
-  os.system("xcp copy -newid " + copyId + " " + metadata.toNfsPath(sourceNfsUrl) + " " + targetS3Url)
-print "Copy completed"
+try:
+  if os.path.exists('/catalog/catalog/indexes/' + copyId):
+    print "Starting incremental copy to: " + targetS3Url
+    os.system("xcp sync -id " + copyId)
+  else:
+    print "Starting basling copy to: " + targetS3Url
+    os.system("xcp copy -newid " + copyId + " " + metadata.toNfsPath(sourceNfsUrl) + " " + targetS3Url)
+  print "Copy completed"
+except Exception as e: 
+  if snsTopic is not None:
+    boto3.client('sns').publish(
+      TopicArn=snsTopic, 
+      Subject='invoke-zapi', 
+      Message='{"copy-id": "' + copyId + '", "instance-id": "' + metadata.instanceId + '", "subnet-id": "' + metadata.subnetId + '", "failed": "' + str(e) + '"}'
+	)
+  raise
 
 if snsTopic is not None:
   boto3.client('sns').publish(
