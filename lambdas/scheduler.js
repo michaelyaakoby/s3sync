@@ -70,7 +70,7 @@ exports.handler = common.eventHandler(
 
                     // #3.6 update the copy configuration status to 'not initialized'
                     .then(function () {
-                        return common.updateCopyConfiguration(user_uuid, subnet, id, 'not initialized')
+                        return common.updateCopyConfiguration(user_uuid, id, 'not initialized');
                     })
 
                     // #3.7 execute the copy-to-s3 command

@@ -283,20 +283,6 @@ exports.scanCopyConfigurationByCopyStatus = function (status) {
     );
 };
 
-exports.queryCopyConfigurationByUserUuidAndSubnet = function (userUuid, subnet) {
-    var copy_configuration_table = getCopyConfigurationsTable();
-    return promisify(
-        'Query table ' + copy_configuration_table.config.params.TableName + ' by user uuid=' + userUuid + ', subnet=' + subnet,
-        copy_configuration_table.query.bind(copy_configuration_table, {
-            KeyConditionExpression: 'user_uuid = :user_uuid AND subnet = :subnet',
-            ExpressionAttributeValues: {
-                ":user_uuid": {S: userUuid},
-                ":subnet": {S: subnet}
-            }
-        })
-    );
-};
-
 exports.queryCopyConfigurationByUserUuid = function (userUuid) {
     var copy_configuration_table = getCopyConfigurationsTable();
     return promisify(
@@ -310,68 +296,62 @@ exports.queryCopyConfigurationByUserUuid = function (userUuid) {
     );
 };
 
-exports.queryCopyConfigurationBySubnetAndId = function (subnet, id) {
+exports.queryCopyConfigurationById = function (id) {
     var copy_configuration_table = getCopyConfigurationsTable();
     return promisify(
-        'Query table ' + copy_configuration_table.config.params.TableName + ' by subnet=' + subnet + ', id=' + subnet,
+        'Query table ' + copy_configuration_table.config.params.TableName + ' by id=' + id,
         copy_configuration_table.query.bind(copy_configuration_table, {
-            IndexName: 'subnet-index',
-            KeyConditionExpression: 'subnet = :subnet',
-            FilterExpression: 'id = :id',
+            IndexName: 'copy_id-index',
+            KeyConditionExpression: 'copy_id = :copy_id',
             ExpressionAttributeValues: {
-                ":subnet": {S: subnet},
-                ":id": {S: id}
+                ":copy_id": {S: id}
             }
         })
     );
 };
 
-exports.createCopyConfiguration = function (userUuid, subnet, source, target, id) {
+exports.createCopyConfiguration = function (userUuid, id, source, target) {
     var copy_configuration_table = getCopyConfigurationsTable();
     return promisify(
-        'Put item in table ' + copy_configuration_table.config.params.TableName + ' - user uuid=' + userUuid + ', subnet=' + subnet + ', source=' + source + ', target=' + target,
+        'Put item in table ' + copy_configuration_table.config.params.TableName + ' - user uuid=' + userUuid + ', id=' + id + ', source=' + source + ', target=' + target,
         copy_configuration_table.putItem.bind(copy_configuration_table, {
             Item: {
                 user_uuid: {S: userUuid},
-                subnet: {S: subnet},
+                copy_id: {S: id},
                 copy_source: {S: source},
                 target: {S: target},
-                copy_status: {S: 'not initialized'},
-                id: {S: id}
+                copy_status: {S: 'not initialized'}
             }
         })
     );
 };
 
-exports.updateCopyConfiguration = function (userUuid, subnet, id, status) {
+exports.updateCopyConfiguration = function (userUuid, id, status) {
     var copy_configuration_table = getCopyConfigurationsTable();
     return promisify(
-        'Update item in table ' + copy_configuration_table.config.params.TableName + ' - user uuid=' + userUuid + ', subnet=' + subnet + ', id=' + id + ', status=' + status,
+        'Update item in table ' + copy_configuration_table.config.params.TableName + ' - user uuid=' + userUuid + ', id=' + id + ', status=' + status,
         copy_configuration_table.updateItem.bind(copy_configuration_table, {
             "Key": {
                 "user_uuid": {S: userUuid},
-                "subnet": {S: subnet}
+                "copy_id": {S: id}
             },
             "UpdateExpression": "SET copy_status = :copy_status",
-            "ConditionExpression": "id = :id",
             "ExpressionAttributeValues": {
-                ":copy_status": {S: status},
-                ":id": {S: id}
+                ":copy_status": {S: status}
             }
         })
     );
 };
 
-exports.queryCopyConfigurationByUserUuidAndSubnetAndParams = function (userUuid, subnet, source, target) {
+exports.queryCopyConfigurationByUserUuidAndParams = function (userUuid, source, target) {
     var copy_configuration_table = getCopyConfigurationsTable();
     return promisify(
-        'Query table ' + copy_configuration_table.config.params.TableName + ' by user uuid=' + userUuid + ', subnet=' + subnet + ', source=' + source + ', target=' + target,
+        'Query table ' + copy_configuration_table.config.params.TableName + ' by user uuid=' + userUuid + ', source=' + source + ', target=' + target,
         copy_configuration_table.query.bind(copy_configuration_table, {
-            KeyConditionExpression: 'user_uuid = :user_uuid AND subnet = :subnet',
+            KeyConditionExpression: 'user_uuid = :user_uuid',
             FilterExpression: "copy_source = :copy_source AND target = :target",
             ExpressionAttributeValues: {
                 ":user_uuid": {S: userUuid},
-                ":subnet": {S: subnet},
                 ":copy_source": {S: source},
                 ":target": {S: target}
             }

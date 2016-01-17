@@ -52,16 +52,15 @@ exports.handler = common.eventHandler(
 
             case 'copy-to-s3':
                 var id = message['copy-id'];
-                var subnet = message['subnet-id'];
                 var status = (message['copy-completed']) ? 'completed' : JSON.stringify(message);
 
                 // #1 query for copy configuration
-                return common.queryCopyConfigurationBySubnetAndId(subnet, id)
+                return common.queryCopyConfigurationById(id)
 
                     // #2 extract the user's uuid from queried copy configuration or fail
                     .then(function (copyConfigurationsData) {
                         if (!copyConfigurationsData.Count) {
-                            throw new Error('No copy configuration found for id: ' + id + ' and subnet: ' + subnet);
+                            throw new Error('No copy configuration found for id: ' + id);
                         } else {
                             return copyConfigurationsData.Items[0].user_uuid.S;
                         }
@@ -69,7 +68,7 @@ exports.handler = common.eventHandler(
 
                     // #3 update copy configuration status
                     .then(function (user_uuid) {
-                        return common.updateCopyConfiguration(user_uuid, subnet, id, status);
+                        return common.updateCopyConfiguration(user_uuid, id, status);
                     });
                 break;
 

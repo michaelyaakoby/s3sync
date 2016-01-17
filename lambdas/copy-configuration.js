@@ -7,7 +7,7 @@ var Promise = require('bluebird');
 // receives the following parameters:
 // http-method
 // user-uuid
-// subnet
+
 //
 // POST mode
 // receives the following parameters:
@@ -23,20 +23,11 @@ exports.handler = common.eventHandler(
 
         switch (event['http-method']) {
             case 'GET':
-                // #1 query for copy configuration data by user's uuid and subnet
-                var copyConfigurationPromise;
-
-                if (event.subnet) {
-                    copyConfigurationPromise = common.queryCopyConfigurationByUserUuidAndSubnet(userUuid, event.subnet);
-                } else {
-                    copyConfigurationPromise = common.queryCopyConfigurationByUserUuid(userUuid);
-                }
-
-                return copyConfigurationPromise.then(function (data) {
+                return common.queryCopyConfigurationByUserUuid(userUuid).then(function (data) {
                     var results = [];
                     data.Items.map(function (item) {
                         results.push({
-                            id: item.id.S,
+                            id: item.copy_id.S,
                             status: item.copy_status.S,
                             source: item.copy_source.S,
                             target: item.target.S
@@ -63,12 +54,12 @@ exports.handler = common.eventHandler(
 
                 var copyConfigurationId;
                 // #1.2 create copy configuration record if not exists
-                var copyConfigurationIdPromise = common.queryCopyConfigurationByUserUuidAndSubnetAndParams(userUuid, event.subnet, event.source, event.target).then(function (copyConfiguration) {
-                    if (!copyConfiguration.Count) {
+                var copyConfigurationIdPromise = common.queryCopyConfigurationByUserUuidAndParams(userUuid, event.source, event.target).then(function (copyConfiguration) {
+                    if (copyConfiguration.Count == 0) {
                         copyConfigurationId = common.uuid();
-                        return common.createCopyConfiguration(userUuid, event.subnet, event.source, event.target, copyConfigurationId);
+                        return common.createCopyConfiguration(userUuid, copyConfigurationId, event.source, event.target);
                     } else {
-                        copyConfigurationId = copyConfiguration.Items[0].id.S;
+                        copyConfigurationId = copyConfiguration.Items[0].copy_id.S;
                         return null;
                     }
                 });
