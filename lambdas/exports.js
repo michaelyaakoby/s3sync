@@ -47,7 +47,7 @@ exports.handler = common.eventHandler(
                 var awsAccessKey = user.awsAccessKey;
                 var awsSecretKey = user.awsSecretKey;
                 var command = '/opt/NetApp/s3sync/agent/scripts/find-exports.py --address ' + event['cluster-mgmt-ip'] + ' --user ' + info.username + ' --password ' + info.password + ' --sns-topic ' + common.sns_topic;
-                common.executeCommand(event.region, instance, awsAccessKey, awsSecretKey, 'Export', command);
+                return common.executeCommand(event.region, instance, awsAccessKey, awsSecretKey, 'Export', command);
             })
 
             // #4 query list of exports

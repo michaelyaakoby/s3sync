@@ -545,7 +545,7 @@ exports.executeCommand = function (region, instance, awsAccessKey, awsSecretKey,
         accessKeyId: awsAccessKey,
         secretAccessKey: awsSecretKey
     });
-    var documentName = commandName + '_' + new Date().getTime();
+    var documentName = commandName + '_' + exports.uuid();
     var documentContent = {
         schemaVersion: '1.2',
         description: commandName,
