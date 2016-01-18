@@ -40,26 +40,28 @@ exports.handler = common.eventHandler(
                         });
                     })
                     .map(function (cluster) {
-                        return common.queryAgentByUserUidAndSubnet(user.uid, cluster.subnet).then(function (agent) {
-                            if (agent.Count) {
-                                var request = "'<netapp><volume-get-iter><desired-attributes><volume-attributes><volume-id-attributes><name/></volume-id-attributes><volume-space-attributes><size/></volume-space-attributes></volume-attributes></desired-attributes></volume-get-iter></netapp>'";
+                        var requestId = common.uuid();
 
-                                var uuid = common.uuid();
-
-                                var command = '/opt/NetApp/s3sync/agent/scripts/invoke-zapi.py --address ' + cluster.ip + ' --user ' + cluster.username + ' --password ' + cluster.password + ' --sns-topic ' + common.sns_topic + ' --request ' + request + ' --request-id ' + uuid;
-
-                                return common.executeCommand(cluster.region, agent.Items[0].instance.S, user.awsAccessKey, user.awsSecretKey, 'Generic_ZAPI', command).then(function () {
-                                    return {
-                                        ip: cluster.ip,
-                                        name: cluster.name,
-                                        type: cluster.type,
-                                        region: cluster.region,
-                                        subnet: cluster.subnet,
-                                        requestId: uuid
-                                    }
-                                });
-                            } else {
-                                throw new common.NotFoundError('No agent found for subnet ' + cluster.subnet);
+                        return common.invokeLambda('dfioClusterInfo', {
+                            userUuid: user.uid,
+                            awsAccessKey: user.awsAccessKey,
+                            awsSecretKey: user.awsSecretKey,
+                            requestId: requestId,
+                            subnet: cluster.subnet,
+                            region: cluster.region,
+                            ip: cluster.ip,
+                            username: cluster.username,
+                            password: cluster.password
+                        }).then(function () {
+                            return {
+                                cluster: {
+                                    ip: cluster.ip,
+                                    name: cluster.name,
+                                    type: cluster.type,
+                                    region: cluster.region,
+                                    subnet: cluster.subnet
+                                },
+                                requestId: requestId
                             }
                         });
                     });
