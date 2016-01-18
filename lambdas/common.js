@@ -725,3 +725,34 @@ exports.createCFStack = function (awsAccessKey, awsSecretKey, region, vpc, subne
 };
 ///// END CREATE CF STACK /////
 
+///// INVOKE LAMBDA /////
+exports.invokeLambda = function (functionName, payload) {
+    var lambda = new AWS.Lambda();
+
+    return promisify(
+        'Invoke lambda - function name=' + functionName + ', payload=' + JSON.stringify(payload),
+        lambda.invoke.bind(lambda, {
+            FunctionName: functionName,
+            InvocationType: 'Event',
+            Payload: JSON.stringify(payload)
+        })
+    )
+};
+///// END INVOKE LAMBDA /////
+
+///// SEND SNS /////
+exports.publishMessage = function (message, subject, topic) {
+    var sns = new AWS.SNS();
+
+    return promisify(
+        'Publish notification - message=' + JSON.stringify(message) + ', subject=' + subject + ', topic=' + topic,
+        sns.publish.bind(sns, {
+            Message: JSON.stringify(message),
+            Subject: subject,
+            TopicArn: topic
+        })
+    )
+};
+///// EBD SEND SNS /////
+
+

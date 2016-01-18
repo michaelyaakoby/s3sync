@@ -9,29 +9,24 @@ exports.handler = common.eventHandler(
         var awsAccessKey = user.aws_access_key.S;
         var awsSecretKey = user.aws_secret_key.S;
 
-        var today = new Date();
-        var yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
-
-        // #1 list s3 buckets
-        return common.listBuckets(awsAccessKey, awsSecretKey).then(function (bucketsData) { return bucketsData.Buckets; })
-
-            // #2 get metrics for each bucket in parallel and return updated bucket object with the metrics on it
+        return common.listBuckets(awsAccessKey, awsSecretKey).then(function (bucketsData) {
+            return bucketsData.Buckets;
+        })
             .map(function (bucket) {
-                var extractAverage = function (stats) {
-                    if (stats.Datapoints.length) {
-                        return stats.Datapoints[0].Average;
-                    } else {
-                        return -1;
-                    }
-                };
-
-                var numberOfObjectsPromise = common.getBucketHourlyAverageMetricStats(awsAccessKey, awsSecretKey, bucket.Name, 'NumberOfObjects', yesterday, today).then(extractAverage);
-                var bucketSizeBytesPromise = common.getBucketHourlyAverageMetricStats(awsAccessKey, awsSecretKey, bucket.Name, 'BucketSizeBytes', yesterday, today).then(extractAverage);
-
-                return Promise.join(numberOfObjectsPromise, bucketSizeBytesPromise, function(numberOfObjects, bucketSizeBytes) {
-                    bucket.NumberOfObjects = numberOfObjects;
-                    bucket.BucketSizeBytes = bucketSizeBytes;
-                    return bucket;
+                var requestId = common.uuid();
+                return common.invokeLambda('bucketMetrics', {
+                    bucket: bucket.Name,
+                    awsAccessKey: user.aws_access_key.S,
+                    awsSecretKey: user.aws_secret_key.S,
+                    requestId: requestId
+                }).then(function () {
+                    return {
+                        bucket: {
+                            name: bucket.Name,
+                            creationDate: bucket.CreationDate
+                        },
+                        requestId: requestId
+                    };
                 });
             });
     }
