@@ -1,9 +1,11 @@
 #/bin/bash
 
 nps=192.168.2.98
+bucket=ontap-sync
 
 exportfs localhost:/ -o ro,no_root_squash,async
 rm -rf /catalog/*
+xcp diag -rmrf s3://$bucket
 
 rm -rf data1
 mkdir data1
