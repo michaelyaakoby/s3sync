@@ -40,7 +40,7 @@ def measureExport(export):
   boto3.client('sns').publish(
     TopicArn=snsTopic, 
     Subject='find-exports-details', 
-    Message='{"instance-id": "' + metadata.instanceId + '", "find-exports": { "cluster-mgmt-ip": "' + address + '", "subnet-id": "' + metadata.subnetId + '", "export-nfs-url": ' + nfsUrl + '", "nfs-address": ' + nfsAddress +  '", "nfs-path": ' + nfsPath + '", "size-bytes": ' + measurement['size-bytes'] + '", "file-count": ' + measurement['file-count'] + ' }}'
+    Message='{"instance-id": "' + metadata.instanceId + '", "find-exports": { "cluster-mgmt-ip": "' + address + '", "subnet-id": "' + metadata.subnetId + '", "export-nfs-url": "' + nfsUrl + '", "nfs-address": "' + nfsAddress +  '", "nfs-path": "' + nfsPath + '", "size-bytes": "' + measurement['size-bytes'] + '", "file-count": "' + measurement['file-count'] + '" }}'
   )
   return measurement
 
