@@ -24,4 +24,3 @@ xcp diag -rmrf $nps:/logs
 xcp copy -newid logs localhost:`pwd`/logs $nps:/logs
 
 exportfs -u localhost:/
-rm -rf /catalog/*

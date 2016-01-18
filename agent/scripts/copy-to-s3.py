@@ -8,15 +8,15 @@ import metadata
 import boto3
 
 def usage():
-  print "Usage: " + sys.argv[0] + " --copy-id <copy-session-id> --source-nfs-url <nfs://source-ip/path> --target-s3-url <s3://bucket/path> [--sns-topic <sns-topic-arn>]"
+  print "Usage: " + sys.argv[0] + " --copy-id <copy-session-id> --source-nfs-url <nfs://source-ip/path> --target-s3-url <s3://bucket/path> [--sns-topic <sns-topic-arn>] [--aws-access-key-id <access-key> --aws-secret-access-key <secret-key>]"
   sys.exit(2)
 
 try:
-  opts, args = getopt.getopt(sys.argv[1:], "c:s:t:n:", ["copy-id=", "source-nfs-url=", "target-s3-url=", "sns-topic="])
+  opts, args = getopt.getopt(sys.argv[1:], "c:s:t:n:i:a", ["copy-id=", "source-nfs-url=", "target-s3-url=", "sns-topic=", "aws-access-key-id=", "aws-secret-access-key="])
 except getopt.GetoptError:
   usage()
 
-copyId = sourceNfsUrl = targetS3Url = snsTopic = None
+copyId = sourceNfsUrl = targetS3Url = snsTopic = awsAccessKeyId = awsSecretAccessKey = None
 
 for opt, arg in opts:
   if opt in ("-c", "--copy-id"):
@@ -27,17 +27,30 @@ for opt, arg in opts:
     targetS3Url = arg
   elif opt in ("-n", "--sns-topic"):
     snsTopic = arg
+  elif opt in ("-i", "--aws-access-key-id"):
+    awsAccessKeyId = arg
+  elif opt in ("-a", "--aws-secret-access-key"):
+    awsSecretAccessKey = arg
 
 if sourceNfsUrl is None or targetS3Url is None or copyId is None:
   usage()
 
 try:
+  xcpEnv = None
+  if awsAccessKeyId is not None and awsSecretAccessKey is not None:
+    print "Using the provided AWS keys"
+    xcpEnv = dict(os.environ, **{"AWS_ACCESS_KEY_ID": awsAccessKeyId, "AWS_SECRET_ACCESS_KEY": awsSecretAccessKey})
+
   if os.path.exists('/catalog/catalog/indexes/' + copyId):
     print "Starting incremental copy to: " + targetS3Url
-    subprocess.check_output("xcp sync -id " + copyId, shell=True)
+    p = subprocess.Popen("xcp sync -id " + copyId, env = xcpEnv, shell = True)
   else:
     print "Starting basling copy to: " + targetS3Url
-    subprocess.check_output("xcp copy -newid " + copyId + " " + metadata.toNfsPath(sourceNfsUrl) + " " + targetS3Url, shell=True)
+    p = subprocess.Popen("xcp copy -newid " + copyId + " " + metadata.toNfsPath(sourceNfsUrl) + " " + targetS3Url, env = xcpEnv, shell = True)
+  
+  if p.wait() != 0:
+    raise Exception("xcp failed, see previous messages for details")
+  
   print "Copy completed"
 except Exception as e: 
   if snsTopic is not None:
