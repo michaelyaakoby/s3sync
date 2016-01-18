@@ -2,20 +2,17 @@ var common = require('./common');
 
 // Returns user's placements - regions, vpcs, subnets
 // receives the following parameters:
-// user-uuid
+// authorization
 exports.handler = common.eventHandler(
     function (event, user) {
-        var awsAccessKey = user.aws_access_key.S;
-        var awsSecretKey = user.aws_secret_key.S;
-
         // #1 get all region names
-        return common.describeRegionNames(awsAccessKey, awsSecretKey)
+        return common.describeRegionNames(user.awsAccessKey, user.awsSecretKey)
 
             // #2 get all subents for each region in parallel
             .map(function (regionName) {
 
                 // 2.1 describe all subnets for region
-                return common.describeSubnets(awsAccessKey, awsSecretKey, regionName)
+                return common.describeSubnets(user.awsAccessKey, user.awsSecretKey, regionName)
 
                     // 2.2 format each subnet response
                     .then(function (subnetsData) {

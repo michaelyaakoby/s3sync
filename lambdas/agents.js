@@ -1,33 +1,31 @@
 var common = require('./common');
-var AWS = require('aws-sdk');
 var Promise = require("bluebird");
 
 // Returns/creates user's agents
 //
 // GET mode
 // receives the following parameters:
+// authorization
 // http-method
-// user-uuid
-// subnet
+// subnet (optional)
 //
 // POST mode
 // receives the following parameters:
+// authorization
 // http-method
-// user-uuid
 // region
 // subnet
 // keypair
 exports.handler = common.eventHandler(
     function (event, user) {
-        var userUuid = event['user-uuid'];
 
         switch (event['http-method']) {
             case 'GET':
                 var agentsPromise;
                 if (event.subnet) {
-                    agentsPromise = common.queryAgentByUserUuidAndSubnet(userUuid, event.subnet);
+                    agentsPromise = common.queryAgentByUserUidAndSubnet(user.uid, event.subnet);
                 } else {
-                    agentsPromise = common.queryAgentByUserUuid(userUuid);
+                    agentsPromise = common.queryAgentByUserUid(user.uid);
                 }
 
                 return agentsPromise
@@ -35,32 +33,34 @@ exports.handler = common.eventHandler(
                         return agents.Items.map(function (agent) {
                             return {
                                 instance: agent.instance.S,
+                                subnet: agent.subnet.S,
                                 region: agent.region.S
                             };
                         });
                     })
 
                     .map(function (agent) {
-                        return common.describeInstance(agent.instance, user.aws_access_key.S, user.aws_secret_key.S, agent.region);
+                        return common.describeInstance(agent.instance, user.awsAccessKey, user.awsSecretKey, agent.region)
+                            .then(function (instance) {
+                               return {
+                                   instance: instance.instance,
+                                   subnet: agent.subnet,
+                                   region: instance.region,
+                                   state: instance.state.Name
+                               }
+                            });
                     });
 
                 break;
 
             case 'POST':
-                var username = user.name.S;
-                var awsAccessKey = user.aws_access_key.S;
-                var awsSecretKey = user.aws_secret_key.S;
-                var region = event.region;
-                var subnet = event.subnet;
-                var keypair = event.keypair;
-
                 // #1 extract VPC ID for subnet or fail
-                var vpcIdPromise = common.describeSubnets(awsAccessKey, awsSecretKey, region, subnet)
+                var vpcIdPromise = common.describeSubnets(user.awsAccessKey, user.awsSecretKey, event.region, event.subnet)
                     .then(function (data) {
                         if (data.Subnets.length) {
                             return data.Subnets[0].VpcId;
                         } else {
-                            throw new Error('Subnet ' + subnet + ' not found');
+                            throw new Error('Subnet ' + event.subnet + ' not found');
                         }
                     });
 
@@ -69,10 +69,10 @@ exports.handler = common.eventHandler(
 
                 // #3 wait for the promises to complete and create CF stack
                 return Promise.join(vpcIdPromise, cfTemplatePromise, function (vpcId, cfTemplate) {
-                    return common.createCFStack(awsAccessKey, awsSecretKey, region, vpcId, subnet, keypair, username, cfTemplate);
+                    return common.createCFStack(user.awsAccessKey, user.awsSecretKey, event.region, vpcId, event.subnet, event.keypair, user.name, cfTemplate);
                 })
                     .then(function () {
-                        return common.createAgent(userUuid, region, subnet);
+                        return common.createAgent(user.uid, event.region, event.subnet);
                     });
                 break;
         }

@@ -28,7 +28,7 @@ exports.handler = common.eventHandler(
                 var commandData = {};
 
                 // #3.1 query for the user data or fail
-                return common.queryUserByUuid(user_uuid)
+                return common.queryUserByUid(user_uuid)
 
                     // #3.2 get the user or fail
                     .then(function (usersData) {
@@ -48,7 +48,7 @@ exports.handler = common.eventHandler(
 
                     // #3.4 query for the copy configuration's agent
                     .then(function () {
-                        return common.queryAgentByUserUuidAndSubnet(user_uuid, subnet);
+                        return common.queryAgentByUserUidAndSubnet(user_uuid, subnet);
                     })
 
                     // #3.5 collect the agent's instance id and region or fail

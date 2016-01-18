@@ -1,33 +1,31 @@
 var common = require('./common.js');
-var Promise = require('bluebird');
 
 // Returns user's S3 buckets
 // receives the following parameters:
-// user-uuid
+// authorization
 exports.handler = common.eventHandler(
     function (event, user) {
-        var awsAccessKey = user.aws_access_key.S;
-        var awsSecretKey = user.aws_secret_key.S;
+        return common.listBuckets(user.awsAccessKey, user.awsSecretKey)
 
-        return common.listBuckets(awsAccessKey, awsSecretKey).then(function (bucketsData) {
-            return bucketsData.Buckets;
-        })
+            .then(function (bucketsData) {
+                return bucketsData.Buckets;
+            })
+
             .map(function (bucket) {
                 var requestId = common.uuid();
-                return common.invokeLambda('bucketMetrics', {
+                return common.invokeLambda('dfioBucketMetrics', {
                     bucket: bucket.Name,
-                    awsAccessKey: user.aws_access_key.S,
-                    awsSecretKey: user.aws_secret_key.S,
+                    awsAccessKey: user.awsAccessKey,
+                    awsSecretKey: user.awsSecretKey,
                     requestId: requestId
-                }).then(function () {
-                    return {
-                        bucket: {
+                })
+                    .then(function () {
+                        return {
                             name: bucket.Name,
-                            creationDate: bucket.CreationDate
-                        },
-                        requestId: requestId
-                    };
-                });
+                            creationDate: bucket.CreationDate,
+                            requestId: requestId
+                        };
+                    });
             });
     }
 );

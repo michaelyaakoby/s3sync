@@ -2,33 +2,42 @@ var common = require('./common');
 
 // Login to the system
 // receives the following parameters:
-// email
-// password
+// token
 exports.handler = common.eventHandler(
     function (event) {
-        // #1 - query the user by email
-        return common.queryUserByEmail(event.email)
+        var accessToken = event.token;
 
-            // #2 - validate user found
-            .then(function (data) {
-                if (!data.Count) {
-                    throw new Error('User ' + event.email + ' not found!');
-                } else {
-                    return data.Items[0];
-                }
-            })
+        // #1 validate the amazon's access token and retrieve the user's profile
+        return common.getAmazonProfile(accessToken)
 
-            // #3 - match passed password and return user's uuid or fail
-            .then(function (user) {
-                if (user.password.S != event.password) {
-                    throw new Error('User ' + event.email + ' provided invalid password!');
-                } else {
-                    return {uuid: user.user_uuid.S};
-                }
+            // #2 query or create the user and return the final response
+            .then(function(profile) {
+                var uid = profile.user_id;
+                var name = profile.name;
+                var email = profile.email;
+
+                // #2.1 query for existing user
+                return common.queryUserByUid(uid)
+
+                    // #2.2 create the user if not found and return true/false if the user requires setup
+                    .then(function (usersData) {
+                        if (!usersData.Count) {
+                            return common.createUser(uid, name, email).return(true);
+                        } else {
+                            var user = usersData.Items[0];
+                            return common.isDynamoItemColumnUndefined(user.aws_access_key) || common.isDynamoItemColumnUndefined(user.aws_secret_key);
+                        }
+                    })
+
+                    // #2.3 return the final response
+                    .then(function (requiresSetup) {
+                        return {
+                            name: name,
+                            email: email,
+                            authorization: 'Bearer ' + common.jwtIssue(uid),
+                            requiresSetup: requiresSetup
+                        }
+                    });
             });
-    },
-    // error converter
-    function (err) {
-        return new common.UnauthorizedError();
     }
 );

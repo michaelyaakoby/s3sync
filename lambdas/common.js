@@ -1,24 +1,61 @@
 var AWS = require('aws-sdk');
 var Promise = require('bluebird');
+var jwt = require('jsonwebtoken');
 var http = require('https');
 
 exports.sns_topic = 'arn:aws:sns:us-west-2:718273455463:occmservice';
+
+///// JWT /////
+var jwtSecret = 'E3%c_mA~8^779}u';
+var jwtIssuer = 'NetApp Inc.';
+
+exports.jwtIssue = function(userId, expiresInMinutes) {
+    var payload = {
+        userId: userId
+    };
+    var options = {
+        issuer: jwtIssuer
+    };
+    if (expiresInMinutes && expiresInMinutes > 0) {
+        options.expiresInMinutes = expiresInMinutes;
+    }
+    return jwt.sign(payload, jwtSecret, options);
+};
+
+function jwtVerify(jwtToken) {
+    return new Promise(function(resolve, reject) {
+        if (!jwtToken) {
+            reject(new UnauthorizedError());
+        }
+        jwtToken = removePrefixIfExists(jwtToken, 'bearer ');
+        jwt.verify(jwtToken, jwtSecret, {}, function (error, payload) {
+            if (error) {
+                reject(error);
+            } else {
+                resolve(payload.userId);
+            }
+        })
+    });
+}
+
+///// END JWT /////
 
 ///// USERS /////
 function getUsersTable() {
     return new AWS.DynamoDB({params: {TableName: 'users'}});
 }
 
-var validateAndGetUser = function (uuid) {
-    return exports.queryUserByUuid(uuid)
-        // #2 - validate user exists
-        .then(function (usersData) {
-            if (!usersData.Count) {
-                throw new UnauthorizedError();
-            } else {
-                return usersData.Items[0];
-            }
-        });
+var authenticateAndGetUser = function (event) {
+    var jwtToken = removePrefixIfExists(event.Authorization, 'bearer ');
+    return jwtVerify(jwtToken)
+        .catch(function (error) {
+            console.error('Failed verifying JWT token: ' + error);
+            throw new UnauthorizedError();
+        })
+        .then(function (userId) {
+            console.log('User id is: ' + userId);
+            return exports.queryUserByUidWithExceptions(userId);
+        })
 };
 
 exports.queryUserByEmail = function (email) {
@@ -34,44 +71,63 @@ exports.queryUserByEmail = function (email) {
     )
 };
 
-exports.queryUserByUuid = function (user_uuid) {
+exports.queryUserByUid = function (uid) {
     var users_table = getUsersTable();
     return promisify(
-        'Query table ' + users_table.config.params.TableName + ' by uuid=' + user_uuid,
+        'Query table ' + users_table.config.params.TableName + ' by uuid=' + uid,
         users_table.query.bind(users_table, {
             IndexName: 'user_uuid-index',
             KeyConditionExpression: 'user_uuid = :user_uuid',
             ExpressionAttributeValues: {
-                ":user_uuid": {S: user_uuid}
+                ":user_uuid": {S: uid}
             }
         })
     );
 };
 
-exports.createUser = function (user_uuid, email, password, name, awsAccessKey, awsSecretKey) {
+exports.queryUserByUidWithExceptions = function (uid) {
+    return exports.queryUserByUid(uid)
+
+        .then(function (usersData) {
+            if (!usersData.Count) {
+                console.error('User data not found!');
+                throw new UnauthorizedError();
+            }
+            var user = usersData.Items[0];
+            if (isDynamoItemColumnUndefined(user.aws_access_key) || isDynamoItemColumnUndefined(user.aws_secret_key)) {
+                throw new PreconditionFailedError('No AWS credentials')
+            }
+            return {
+                uid: user.user_uuid.S,
+                email: user.email.S,
+                name: user.name.S,
+                awsAccessKey: user.aws_access_key.S,
+                awsSecretKey: user.aws_secret_key.S
+            };
+        });
+};
+
+exports.createUser = function (uid, name, email) {
     var users_table = getUsersTable();
     return promisify(
-        'Put item in table ' + users_table.config.params.TableName + ' - uuid=' + user_uuid + ', email=' + email + ', password=' + password + ', name=' + name + ', aws access key=' + awsAccessKey + ', aws secret key=' + awsSecretKey,
+        'Put item in table ' + users_table.config.params.TableName + ' - uuid=' + uid + ', email=' + email + ', name=' + name,
         users_table.putItem.bind(users_table, {
             Item: {
-                user_uuid: {S: user_uuid},
+                user_uuid: {S: uid},
                 email: {S: email},
-                password: {S: password},
-                name: {S: name},
-                aws_access_key: {S: awsAccessKey},
-                aws_secret_key: {S: awsSecretKey}
+                name: {S: name}
             }
         })
     );
 };
 
-exports.updateUserAwsCredentials = function (email, awsAccessKey, awsSecretKey) {
+exports.updateUserAwsCredentials = function (uid, awsAccessKey, awsSecretKey) {
     var users_table = getUsersTable();
     return promisify(
-        'Update item in table ' + users_table.config.params.TableName + ' - email=' + email + ', aws access key=' + awsAccessKey + ', aws secret key=' + awsSecretKey,
+        'Update item in table ' + users_table.config.params.TableName + ' - uuid=' + uid + ', aws access key=' + awsAccessKey + ', aws secret key=' + awsSecretKey,
         users_table.updateItem.bind(users_table, {
             "Key": {
-                "email": {S: email}
+                "user_uuid": {S: uid}
             },
             "UpdateExpression": "SET aws_access_key = :aws_access_key, aws_secret_key = :aws_secret_key",
             "ExpressionAttributeValues": {
@@ -89,14 +145,14 @@ function getClustersTable() {
     return new AWS.DynamoDB({params: {TableName: 'clusters'}});
 }
 
-exports.queryClustersByUserUuid = function (userUuid) {
+exports.queryClustersByUserUid = function (uid) {
     var clusters_table = getClustersTable();
     return promisify(
-        'Query table ' + clusters_table.config.params.TableName + ' by user uuid=' + userUuid,
+        'Query table ' + clusters_table.config.params.TableName + ' by user uuid=' + uid,
         clusters_table.query.bind(clusters_table, {
             KeyConditionExpression: 'user_uuid = :user_uuid',
             ExpressionAttributeValues: {
-                ":user_uuid": {S: userUuid}
+                ":user_uuid": {S: uid}
             }
         })
     );
@@ -155,28 +211,28 @@ exports.createAgent = function (userUuid, region, subnet) {
     );
 };
 
-exports.queryAgentByUserUuidAndSubnet = function (userUuid, subnet) {
+exports.queryAgentByUserUidAndSubnet = function (uid, subnet) {
     var agents_table = getAgentsTable();
     return promisify(
-        'Query table ' + agents_table.config.params.TableName + ' by user uuid=' + userUuid + ', subnet=' + subnet,
+        'Query table ' + agents_table.config.params.TableName + ' by user uuid=' + uid + ', subnet=' + subnet,
         agents_table.query.bind(agents_table, {
             KeyConditionExpression: 'user_uuid = :user_uuid AND subnet = :subnet',
             ExpressionAttributeValues: {
-                ":user_uuid": {S: userUuid},
+                ":user_uuid": {S: uid},
                 ":subnet": {S: subnet}
             }
         })
     );
 };
 
-exports.queryAgentByUserUuid = function (userUuid) {
+exports.queryAgentByUserUid = function (uid) {
     var agents_table = getAgentsTable();
     return promisify(
-        'Query table ' + agents_table.config.params.TableName + ' by user uuid=' + userUuid,
+        'Query table ' + agents_table.config.params.TableName + ' by user uuid=' + uid,
         agents_table.query.bind(agents_table, {
             KeyConditionExpression: 'user_uuid = :user_uuid',
             ExpressionAttributeValues: {
-                ":user_uuid": {S: userUuid}
+                ":user_uuid": {S: uid}
             }
         })
     );
@@ -388,14 +444,38 @@ function BadRequestError(message) {
 }
 BadRequestError.prototype = new Error();
 exports.BadRequestError = BadRequestError;
+
+function PreconditionFailedError(message) {
+    this.name = 'Precondition Failed';
+    this.message = message;
+}
+PreconditionFailedError.prototype = new Error();
+exports.PreconditionFailedError = PreconditionFailedError;
 ///// END ERRORS /////
 
 ///// UTILS /////
+function removePrefixIfExists(str, prefix) {
+    if (!str || (str.length < prefix.length)) {
+        return str;
+    }
+    var strPrefix = str.substr(0, prefix.length).toLowerCase();
+    if (strPrefix == prefix.toLowerCase()) {
+        return str.substr(prefix.length);
+    } else {
+        return str;
+    }
+}
+
 exports.flatten = function (arrayOfArrays) {
     return arrayOfArrays.reduce(function (a, b) {
         return a.concat(b);
     });
 };
+
+function isDynamoItemColumnUndefined(column) {
+    return !column || !column.S || column.S == '';
+}
+exports.isDynamoItemColumnUndefined = isDynamoItemColumnUndefined;
 
 function promisify(msg, fn) {
     console.log(msg);
@@ -420,8 +500,7 @@ exports.eventHandler = function (action, errorHandler) {
         if (action.length == 1) {
             initialPromise = action(event);
         } else {
-            var userUuid = event['user-uuid'];
-            initialPromise = validateAndGetUser(userUuid).then(function (user) {
+            initialPromise = authenticateAndGetUser(event).then(function (user) {
                 return action(event, user);
             });
         }
@@ -432,22 +511,20 @@ exports.eventHandler = function (action, errorHandler) {
                     context.succeed(data);
                 } else {
                     console.log('Succeeded event handling with no response');
-                    context.done();
+                    context.succeed();
                 }
             })
             .catch(function (err) {
-                console.log('Failed with internal error - ' + err);
+                console.error('Failed with internal error - ', err);
                 if (errorHandler) {
                     err = errorHandler(err);
                 }
-                if (err instanceof Error) {
-                    err = {code: err.name, message: err.message};
-                } else {
-                    err = {code: 'Error', message: err};
+                if (!(err instanceof Error)) {
+                    console.warn('Only Error types should be thrown, but ' + typeof(err) + ' was thrown with value: ' + err);
+                    err = new Error(err);
                 }
-                err = JSON.stringify(err);
-                console.log('Failed event handling with response - ' + err);
-                context.fail(err);
+                console.error('Failed event handling with response - ', err);
+                context.fail(err.name + ' - ' + err.message);
             });
     };
 };
@@ -654,7 +731,7 @@ exports.describeInstance = function (instanceId, awsAccessKey, awsSecretKey, reg
 ///// END EC2 /////
 
 ///// GET URL CONTENT /////
-exports.getUrlContent = function (host, port, path) {
+exports.getUrlContent = function (host, port, path, headers) {
     var httpGetWithCallback = function (callback) {
         var requestOptions = {
             method: 'GET',
@@ -662,6 +739,10 @@ exports.getUrlContent = function (host, port, path) {
             port: port,
             path: path
         };
+
+        if (headers) {
+            requestOptions.headers = headers;
+        }
 
         var requestCallback = function (response) {
             var str = '';
@@ -688,6 +769,21 @@ exports.getUrlContent = function (host, port, path) {
         'Get URL Content - host=' + host + ', port=' + port + ', path=' + path,
         httpGetWithCallback
     );
+};
+
+exports.getAmazonProfile = function(accessToken) {
+    console.log('Get amazon profile - accessToken=' + accessToken);
+    return exports.getUrlContent('api.amazon.com', 443, '/user/profile', { 'Authorization': 'Bearer ' + accessToken })
+        .then(function (data) {
+            var profile = JSON.parse(data);
+            if (profile.error) {
+                console.error("Failed Get amazon profile - " + data);
+                throw new UnauthorizedError();
+            } else {
+                console.error("Succeeded Get amazon profile - profile: " + data);
+                return profile;
+            }
+        });
 };
 ///// END GET URL CONTENT /////
 
