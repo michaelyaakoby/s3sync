@@ -35,17 +35,17 @@ def measureExport(export):
   nfsPath = export['junction-path']
   nfsUrl = 'nfs://' + nfsAddress + nfsPath
   measurement = exports.measureExport(nfsUrl)
-  snsNotify(snsTopic, 'find-exports-details', {'instance-id': metadata.instanceId, 'find-exports': { 'cluster-mgmt-ip': address, 'subnet-id': metadata.subnetId, 'export-nfs-url': nfsUrl, 'nfs-address': nfsAddress, 'nfs-path': nfsPath, 'size-bytes': measurement['size-bytes'], 'file-count': measurement['file-count']}})
+  metadata.snsNotify(snsTopic, 'find-exports-details', {'instance-id': metadata.instanceId, 'find-exports': { 'cluster-mgmt-ip': address, 'subnet-id': metadata.subnetId, 'export-nfs-url': nfsUrl, 'nfs-address': nfsAddress, 'nfs-path': nfsPath, 'size-bytes': measurement['size-bytes'], 'file-count': measurement['file-count']}})
   return measurement
 
 try:
   foundExports = exports.findExports(address, username, password)
   print 'Exports >>> ' +  str(foundExports)
   
-  snsNotify(snsTopic, 'find-exports', {'instance-id': metadata.instanceId, 'find-exports': { 'cluster-mgmt-ip': address, 'subnet-id': metadata.subnetId, 'exports': foundExports}})
+  metadata.snsNotify(snsTopic, 'find-exports', {'instance-id': metadata.instanceId, 'find-exports': { 'cluster-mgmt-ip': address, 'subnet-id': metadata.subnetId, 'exports': foundExports}})
   for export in foundExports:
     print 'Measured >> ' + str(measureExport(export))
 
 except Exception as e: 
-  snsNotify(snsTopic, 'find-exports', {'instance-id': metadata.instanceId, 'failed': str(e)})
+  metadata.snsNotify(snsTopic, 'find-e, 'find-e, 'find-e, 'find-e, 'find-exports', {'instance-id': metadata.instanceId, 'failed': str(e)})
   raise

@@ -16,7 +16,7 @@ def measureExport(nfsUrl, requestId = None, snsTopic = None):
         if tokens[0] == 'Total space used': totalSpace = tokens[1]
         if tokens[0] == 'Total count': totalCount = tokens[1]
     
-  snsNotify(snsTopic, 'measure-export', {'request-id': requestId, 'instance-id': metadata.instanceId, 'subnet-id': metadata.subnetId, 'measure-export': { 'total-file-and-dirs-count': totalCount, 'total-size-in-bytes': totalSpace}})
+  metadata.snsNotify(snsTopic, 'measure-export', {'request-id': requestId, 'instance-id': metadata.instanceId, 'subnet-id': metadata.subnetId, 'measure-export': { 'total-file-and-dirs-count': totalCount, 'total-size-in-bytes': totalSpace}})
   
   return {'nfsUrl': nfsUrl, 'size-bytes': totalSpace, 'file-count': totalCount}
 

@@ -54,8 +54,8 @@ try:
   print Response >>> ' + responseText
 
 except Exception as e: 
-  snsNotify(snsTopic, 'invoke-zapi', {'request-id': requestId, 'instance-id': metadata.instanceId, 'failed': str(e)})
+  metadata.snsNotify(snsTopic, 'invoke-zapi', {'request-id': requestId, 'instance-id': metadata.instanceId, 'failed': str(e)})
   raise
 
 if snsTopic is not None:
-  snsNotify(snsTopic, 'invoke-zapi', {'request-id': requestId, 'instance-id': metadata.instanceId, 'invoke-zapi': { 'cluster-mgmt-ip': address, 'subnet-id': metadata.subnetId, 'response': str(responseText)}})
+  metadata.snsNotify(snsTopic, 'invoke-zapi', {'request-id': requestId, 'instance-id': metadata.instanceId, 'invoke-zapi': { 'cluster-mgmt-ip': address, 'subnet-id': metadata.subnetId, 'response': str(responseText)}})

@@ -53,7 +53,7 @@ try:
   print "Copy completed"
   
 except Exception as e: 
-  snsNotify(snsTopic, 'copy-to-s3', {'copy-id': copyId, 'instance-id': metadata.instanceId, 'subnet-id': metadata.subnetId, 'failed': str(e)})
+  metadata.snsNotify(snsTopic, 'copy-to-s3', {'copy-id': copyId, 'instance-id': metadata.instanceId, 'subnet-id': metadata.subnetId, 'failed': str(e)})
   raise
 
-snsNotify(snsTopic, 'copy-to-s3', {'copy-id': copyId, 'instance-id': metadata.instanceId, 'subnet-id': metadata.subnetId, 'copy-completed': { 'source': sourceNfsUrl, 'destination': targetS3Url}})
+metadata.snsNotify(snsTopic, 'copy-to-s3', {'copy-id': copyId, 'instance-id': metadata.instanceId, 'subnet-id': metadata.subnetId, 'copy-completed': { 'source': sourceNfsUrl, 'destination': targetS3Url}})
