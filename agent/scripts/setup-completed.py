@@ -32,8 +32,4 @@ boto3.client('cloudformation').signal_resource(
     Status='SUCCESS'
 )
 
-boto3.client('sns').publish(
-    TopicArn=snsTopic, 
-    Subject='deploy-agent-completed', 
-    Message='{"deploy-agent": { "vpc-id": "' + metadata.vpcId + '", "subnet-id": "' + metadata.subnetId + '", "instance-id": "' + metadata.instanceId + '" }, "status": "success"}'
-)
+snsNotify(snsTopic, 'deploy-agent-completed', {'deploy-agent': { 'vpc-id': metadata.vpcId, 'subnet-id': metadata.subnetId, 'instance-id': metadata.instanceId}, 'status': 'success'})

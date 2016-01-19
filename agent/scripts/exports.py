@@ -3,7 +3,6 @@
 import sys
 import getopt
 import metadata
-import boto3
 import subprocess
 import requests
 import xml.etree.ElementTree as ET
@@ -17,12 +16,7 @@ def measureExport(nfsUrl, requestId = None, snsTopic = None):
         if tokens[0] == 'Total space used': totalSpace = tokens[1]
         if tokens[0] == 'Total count': totalCount = tokens[1]
     
-  if snsTopic is not None:
-    boto3.client('sns').publish(
-      TopicArn=snsTopic, 
-      Subject='measure-export', 
-      Message='{"request-id": "' + requestId + '", "instance-id": "' + metadata.instanceId + '", "subnet-id": "' + metadata.subnetId + '", "measure-export": { "total-file-and-dirs-count": "' + totalCount + '", "total-size-in-bytes": "' + totalSpace + '"}}'
-    )
+  snsNotify(snsTopic, 'measure-export', {'request-id': requestId, 'instance-id': metadata.instanceId, 'subnet-id': metadata.subnetId, 'measure-export': { 'total-file-and-dirs-count': totalCount, 'total-size-in-bytes': totalSpace}})
   
   return {'nfsUrl': nfsUrl, 'size-bytes': totalSpace, 'file-count': totalCount}
 

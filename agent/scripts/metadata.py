@@ -2,6 +2,8 @@
 
 import requests
 import re
+import json
+import boto3
 
 instanceId = requests.get("http://169.254.169.254/latest/meta-data/instance-id").text
 region = requests.get("http://169.254.169.254/latest/meta-data/placement/availability-zone").text[:-1]
@@ -19,3 +21,10 @@ def toNfsPath(nfsUrl):
   (nfsAddress, nfsPath) = match.groups()
   return nfsAddress + ":" + nfsPath
 
+def snsNotify(snsTopic, subject, messageDict):
+  if snsTopic is not None:
+    boto3.client('sns').publish(
+      TopicArn=snsTopic, 
+      Subject=subject, 
+      Message=json.dumps(messageDict)
+    )

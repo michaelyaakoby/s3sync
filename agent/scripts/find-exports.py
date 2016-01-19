@@ -1,12 +1,10 @@
 #!/usr/bin/python
-#!/usr/bin/python
 
 import sys
 import getopt
-import json
 import metadata
-import boto3
 import exports
+import json
 
 def usage():
   print "Usage: " + sys.argv[0] + " --address <ontap-cluster> --user <admin-user-name> --password <admin-password> [--sns-topic <sns-topic-arn>]"
@@ -37,33 +35,17 @@ def measureExport(export):
   nfsPath = export['junction-path']
   nfsUrl = 'nfs://' + nfsAddress + nfsPath
   measurement = exports.measureExport(nfsUrl)
-  boto3.client('sns').publish(
-    TopicArn=snsTopic, 
-    Subject='find-exports-details', 
-    Message='{"instance-id": "' + metadata.instanceId + '", "find-exports": { "cluster-mgmt-ip": "' + address + '", "subnet-id": "' + metadata.subnetId + '", "export-nfs-url": "' + nfsUrl + '", "nfs-address": "' + nfsAddress +  '", "nfs-path": "' + nfsPath + '", "size-bytes": "' + measurement['size-bytes'] + '", "file-count": "' + measurement['file-count'] + '" }}'
-  )
+  snsNotify(snsTopic, 'find-exports-details', {'instance-id': metadata.instanceId, 'find-exports': { 'cluster-mgmt-ip': address, 'subnet-id': metadata.subnetId, 'export-nfs-url': nfsUrl, 'nfs-address': nfsAddress, 'nfs-path': nfsPath, 'size-bytes': measurement['size-bytes'], 'file-count': measurement['file-count']}})
   return measurement
 
 try:
   foundExports = exports.findExports(address, username, password)
   print 'Exports >>> ' +  str(foundExports)
   
-  if snsTopic is not None:
-    jsonExports = json.dumps(foundExports)
-    boto3.client('sns').publish(
-      TopicArn=snsTopic, 
-      Subject='find-exports', 
-      Message='{"instance-id": "' + metadata.instanceId + '", "find-exports": { "cluster-mgmt-ip": "' + address + '", "subnet-id": "' + metadata.subnetId +'", "exports": ' + jsonExports + ' }}'
-    )
-    
-    for export in foundExports:
-      print 'Measured >> ' + str(measureExport(export))
+  snsNotify(snsTopic, 'find-exports', {'instance-id': metadata.instanceId, 'find-exports': { 'cluster-mgmt-ip': address, 'subnet-id': metadata.subnetId, 'exports': foundExports}})
+  for export in foundExports:
+    print 'Measured >> ' + str(measureExport(export))
 
 except Exception as e: 
-  if snsTopic is not None:
-    boto3.client('sns').publish(
-      TopicArn=snsTopic, 
-      Subject='invoke-zapi', 
-      Message='{"instance-id": "' + metadata.instanceId + '", "failed": "' + str(e) + '"}'
-	)
+  snsNotify(snsTopic, 'find-exports', {'instance-id': metadata.instanceId, 'failed': str(e)})
   raise

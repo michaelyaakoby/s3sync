@@ -229,6 +229,7 @@
                                 "yum -y install git",
                                 "git clone https://github.com/michaelyaakoby/s3sync /opt/NetApp/s3sync",
                                 "chmod +x /opt/NetApp/s3sync/agent/scripts/*",
+                                "chmod +x /opt/NetApp/s3sync/demo/*",
                                 "",
                                 "# install misc libraries",
                                 "pip install xmltodict",
