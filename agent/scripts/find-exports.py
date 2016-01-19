@@ -47,5 +47,5 @@ try:
     print 'Measured >> ' + str(measureExport(export))
 
 except Exception as e: 
-  metadata.snsNotify(snsTopic, 'find-e, 'find-e, 'find-e, 'find-e, 'find-exports', {'instance-id': metadata.instanceId, 'failed': str(e)})
+  metadata.snsNotify(snsTopic, 'find-exports', {'instance-id': metadata.instanceId, 'failed': str(e)})
   raise
