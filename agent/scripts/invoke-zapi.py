@@ -51,7 +51,7 @@ try:
   
   responseText = json.dumps(xmltodict.parse(responseText))
   
-  print Response >>> ' + responseText
+  print 'Response >>> ' + responseText
 
 except Exception as e: 
   metadata.snsNotify(snsTopic, 'invoke-zapi', {'request-id': requestId, 'instance-id': metadata.instanceId, 'failed': str(e)})

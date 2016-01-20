@@ -228,7 +228,7 @@
                                 "sysctl -p",
                                 "",
                                 "# Install and activate XCP",
-                                "python -c \"import boto3; s3 = boto3.resource('s3'); s3.meta.client.download_file('repo.datafabric.io', 'xcp/xcp-license.xwic', 'xcp-license.xwic'); s3.meta.client.download_file('repo.datafabric.io', 'xcp/xcp-ff7a6a5-boto2-s3-experimental-build-11.tgz', 'xcp.tgz')\"",
+                                "python -c \"import boto3; s3 = boto3.resource('s3'); s3.meta.client.download_file('repo.datafabric.io', 'xcp/xcp-license.xwic', 'xcp-license.xwic'); s3.meta.client.download_file('repo.datafabric.io', 'xcp/xcp-ea96a9e-boto2-s3-experimental-build-12.tgz', 'xcp.tgz')\"",
                                 "tar xzvf xcp*.tgz",
                                 "ln -s `pwd`/xcp-*/linux/xcp /usr/bin/xcp",
                                 "mkdir -p /opt/NetApp/xFiles/xcp",
