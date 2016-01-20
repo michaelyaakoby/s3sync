@@ -23,7 +23,7 @@ exports.handler = common.eventHandler(
         var numberOfObjectsPromise = common.getBucketHourlyAverageMetricStats(awsAccessKey, awsSecretKey, bucketName, 'NumberOfObjects', yesterday, today).then(extractAverage);
         var bucketSizeBytesPromise = common.getBucketHourlyAverageMetricStats(awsAccessKey, awsSecretKey, bucketName, 'BucketSizeBytes', yesterday, today).then(extractAverage);
 
-        Promise.join(numberOfObjectsPromise, bucketSizeBytesPromise, function (numberOfObjects, bucketSizeBytes) {
+        return Promise.join(numberOfObjectsPromise, bucketSizeBytesPromise, function (numberOfObjects, bucketSizeBytes) {
             var message = {
                 bucketName: bucketName,
                 requestId: requestId,
