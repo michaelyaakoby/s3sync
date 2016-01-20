@@ -33,3 +33,18 @@ xcp diag -rmrf $nps:/logs
 xcp copy -newid logs localhost:`pwd`/logs $nps:/logs
 
 exportfs -u localhost:/
+
+echo '>>>>>> '
+echo '>>>>>> Setting EMR volume: access_logs'
+echo '>>>>>> '
+curl ftp://ita.ee.lbl.gov/traces/NASA_access_log_Jul95.gz -o NASA_access_log_Jul95.gz
+gunzip NASA_access_log_Aug95.gz
+curl ftp://ita.ee.lbl.gov/traces/NASA_access_log_Aug95.gz -o NASA_access_log_Aug95.gz
+gunzip NASA_access_log_Jul95.gz
+mkdir emr
+cd emr
+split -l 500 --additional-suffix .log ../NASA_access_log_Jul95 access_Jul95_
+split -l 500 --additional-suffix .log ../NASA_access_log_Aug95 access_Aug95_
+exportfs localhost:`pwd`
+xcp copy -newid emr localhost:`pwd` 192.168.2.98:/access_logs
+exportfs -u localhost:`pwd`
