@@ -648,7 +648,7 @@ exports.getBucketHourlyAverageMetricStats = function (awsAccessKey, awsSecretKey
                 }
             ]
         })
-    )
+    );
 };
 
 ///// END CLOUDWATCH /////

@@ -8,7 +8,11 @@ exports.handler = common.eventHandler(
         return common.listBuckets(user.awsAccessKey, user.awsSecretKey)
 
             .then(function (bucketsData) {
-                return bucketsData.Buckets;
+                function isDemoBucket(value) {
+                    return value.Name.indexOf('tlv-') != -1;
+                }
+
+                return bucketsData.Buckets.filter(isDemoBucket);
             })
 
             .map(function (bucket) {
@@ -26,6 +30,7 @@ exports.handler = common.eventHandler(
                             requestId: requestId
                         };
                     });
+
             });
     }
 );
