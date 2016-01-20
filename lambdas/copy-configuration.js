@@ -29,7 +29,8 @@ exports.handler = common.eventHandler(
                             id: item.copy_id.S,
                             status: item.copy_status.S,
                             source: item.copy_source.S,
-                            target: item.target.S
+                            target: item.target.S,
+                            lastUpdate: item.last_update.N
                         });
                     });
 

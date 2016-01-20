@@ -376,7 +376,8 @@ exports.createCopyConfiguration = function (userUuid, id, source, target) {
                 copy_id: {S: id},
                 copy_source: {S: source},
                 target: {S: target},
-                copy_status: {S: 'not initialized'}
+                copy_status: {S: 'not initialized'},
+                last_update: {N: new Date().getTime().toString()}
             }
         })
     );
@@ -391,9 +392,10 @@ exports.updateCopyConfiguration = function (userUuid, id, status) {
                 "user_uuid": {S: userUuid},
                 "copy_id": {S: id}
             },
-            "UpdateExpression": "SET copy_status = :copy_status",
+            "UpdateExpression": "SET copy_status = :copy_status, last_update = :last_update",
             "ExpressionAttributeValues": {
-                ":copy_status": {S: status}
+                ":copy_status": {S: status},
+                ":last_update": {N: new Date().getTime().toString()}
             }
         })
     );
