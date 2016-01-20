@@ -35,17 +35,18 @@ if sourceNfsUrl is None or targetS3Url is None or copyId is None:
   usage()
 
 try:
-  xcpEnv = None
+  xcpCmd = "xcp diag -run /opt/NetApp/s3sync/agent/scripts/xcp-progress.py"
+  xcpEnv = dict(os.environ, **{'COPY_ID': copyId, 'INSTANCE_ID': metadata.instanceId, 'SUBNET_ID': metadata.subnetId, 'SNS_TOPIC': snsTopic})
   if awsAccessKeyId is not None and awsSecretAccessKey is not None:
     print "Using the provided AWS keys"
-    xcpEnv = dict(os.environ, **{"AWS_ACCESS_KEY_ID": awsAccessKeyId, "AWS_SECRET_ACCESS_KEY": awsSecretAccessKey})
+    xcpEnv = dict(xcpEnv, **{"AWS_ACCESS_KEY_ID": awsAccessKeyId, "AWS_SECRET_ACCESS_KEY": awsSecretAccessKey})
 
   if os.path.exists('/catalog/catalog/indexes/' + copyId):
     print "Starting incremental copy to: " + targetS3Url
-    p = subprocess.Popen("xcp sync -id " + copyId, env = xcpEnv, shell = True)
+    p = subprocess.Popen(xcpCmd + " sync -id " + copyId, env = xcpEnv, shell = True)
   else:
-    print "Starting basling copy to: " + targetS3Url
-    p = subprocess.Popen("xcp copy -newid " + copyId + " " + metadata.toNfsPath(sourceNfsUrl) + " " + targetS3Url, env = xcpEnv, shell = True)
+    print "Starting baseling copy to: " + targetS3Url
+    p = subprocess.Popen(xcpCmd + " copy -newid " + copyId + " " + metadata.toNfsPath(sourceNfsUrl) + " " + targetS3Url, env = xcpEnv, shell = True)
   
   if p.wait() != 0:
     raise Exception("xcp failed, see previous messages for details")
