@@ -853,4 +853,58 @@ exports.publishMessage = function (message, subject, topic) {
 };
 ///// EBD SEND SNS /////
 
+///// SQS /////
+exports.createSQSQueue = function () {
+    var sqs = new AWS.SQS();
+    var queueName = exports.uuid();
+
+    return promisify(
+        'Create SQS queue ' + queueName,
+        sqs.createQueue.bind(sqs, {
+            QueueName: queueName,
+            Attributes: {
+                MessageRetentionPeriod: '60',
+                VisibilityTimeout: '60',
+                ReceiveMessageWaitTimeSeconds: "9",
+                Policy: '{\
+                "Version": "2012-10-17",\
+                "Id": "arn:aws:sqs:us-west-2:718273455463:' + queueName + '/SQSDefaultPolicy",\
+                "Statement": [\
+                    {\
+                        "Sid": "Sid1452688694258",\
+                        "Effect": "Allow",\
+                        "Principal": {\
+                            "AWS": "*"\
+                        },\
+                        "Action": "SQS:SendMessage",\
+                        "Resource": "arn:aws:sqs:us-west-2:718273455463:' + queueName + '",\
+                        "Condition": {\
+                            "ArnEquals": {\
+                                "aws:SourceArn": "arn:aws:sns:us-west-2:718273455463:occmservice"\
+                            }\
+                        }\
+                    }\
+                ]\
+            }'
+            }
+        })
+    )
+    .then(function () {
+        var sns = new AWS.SNS();
+
+        return promisify(
+            'Subscribe SQS queue ' + queueName + ' to SNS topic' + exports.sns_topic,
+            sns.subscribe.bind(sns, {
+                Protocol: 'sqs',
+                TopicArn: exports.sns_topic,
+                Endpoint: 'arn:aws:sqs:us-west-2:718273455463:' + queueName
+            })
+        );
+    })
+    .then(function () {
+        return queueName;
+    });
+};
+///// END SQS/////
+
 

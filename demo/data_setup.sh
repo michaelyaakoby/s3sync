@@ -45,6 +45,7 @@ mkdir emr
 cd emr
 split -l 500 --additional-suffix .log ../NASA_access_log_Jul95 access_Jul95_
 split -l 500 --additional-suffix .log ../NASA_access_log_Aug95 access_Aug95_
+for i in $(seq 1 2); do mkdir l$i; cp *.log l$i; done
 exportfs localhost:`pwd`
 xcp copy -newid emr localhost:`pwd` 192.168.2.98:/access_logs
 exportfs -u localhost:`pwd`
