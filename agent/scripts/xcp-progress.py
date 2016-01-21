@@ -57,21 +57,17 @@ def sendProgress(treeTask, completed=False):
 	
 	conn.publish(topic = snsTopic, subject = 'copy-to-s3-progress', message = json.dumps({'copy-id': copyId, 'instance-id': instanceId, 'subnet-id': subnetId, 'progress': {'files-copied-so-far': filesCopiedSoFar, 'bytes-copied-so-far': bytesCopiedSoFar, 'completed': completed }}))
 
-
-class CompletionTask(sched.SimpleTask):
-	def gRun(self, treeTask):
-		yield (treeTask, None)
-		sendProgress(treeTask, True)
-
-class SNSTask(sched.SimpleTask):
+class SNSTask(sched.Task):
+	def __init__(self):
+		self.treeTask = None
+		super(SNSTask, self).__init__("SNSTask", producer=self.gRun())
+		
 	def gRun(self):
-
 		treeTask = None
 		while treeTask is None:
 			for task in self.engine.tasks.values():
 				if hasattr(task, "tree"):
-					treeTask = task
-					CompletionTask(treeTask)
+					self.treeTask = treeTask = task
 					break
 			yield (time.time() + .1, None)
 
@@ -83,6 +79,9 @@ class SNSTask(sched.SimpleTask):
 def run(argv):
 	engine = sched.engine
 
-	SNSTask()
+	snsTask = SNSTask()
 	xcp.xcp(argv, engine=engine, warn=False)
+	if snsTask.treeTask is not None: 
+		sendProgress(snsTask.treeTask, True)
+
 	sys.exit(0)
