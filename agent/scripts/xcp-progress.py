@@ -48,6 +48,21 @@ snsTopic = os.environ['SNS_TOPIC']
 region = re.compile('arn:aws:sns:([^:]+):.*').match(snsTopic).group(1)
 conn = boto.sns.connect_to_region(region)
 
+def sendProgress(treeTask, completed=False):
+	# Get number of regular files copied so far
+	filesCopiedSoFar = treeTask.tree.stats['copied']
+	
+	# Get bytes copied so far (from regular files)
+	bytesCopiedSoFar = treeTask.tree.stats['dataCopied']
+	
+	conn.publish(topic = snsTopic, subject = 'copy-to-s3-progress', message = json.dumps({'copy-id': copyId, 'instance-id': instanceId, 'subnet-id': subnetId, 'progress': {'files-copied-so-far': filesCopiedSoFar, 'bytes-copied-so-far': bytesCopiedSoFar, 'completed': completed }}))
+
+
+class CompletionTask(sched.SimpleTask):
+	def gRun(self, treeTask):
+		yield (treeTask, None)
+		sendProgress(treeTask, True)
+
 class SNSTask(sched.SimpleTask):
 	def gRun(self):
 
@@ -56,20 +71,13 @@ class SNSTask(sched.SimpleTask):
 			for task in self.engine.tasks.values():
 				if hasattr(task, "tree"):
 					treeTask = task
+					CompletionTask(treeTask)
 					break
 			yield (time.time() + .1, None)
 
 		while True:
-			yield (time.time() + Frequency, None)
-			
-			# Get number of regular files copied so far
-			filesCopiedSoFar = treeTask.tree.stats['copied']
-			
-			# Get bytes copied so far (from regular files)
-			bytesCopiedSoFar = treeTask.tree.stats['dataCopied']
-			
-			conn.publish(topic = snsTopic, subject = 'copy-to-s3-progress', message = json.dumps({'copy-id': copyId, 'instance-id': instanceId, 'subnet-id': subnetId, 'progress': {'files-copied-so-far': filesCopiedSoFar, 'bytes-copied-so-far': bytesCopiedSoFar }}))
-
+			yield (time.time() + Frequency, None)		
+			sendProgress(treeTask)
 
 # xcp diag -run show.py will call this function
 def run(argv):
