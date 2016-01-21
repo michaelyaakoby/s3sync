@@ -39,7 +39,7 @@ def measureExport(export):
   return measurement
 
 try:
-  foundExports = exports.findExports(address, username, password)
+  foundExports = filter(lambda export: export['is-vserver-root'] != 'true', exports.findExports(address, username, password))
   print 'Exports >>> ' +  str(foundExports)
   
   metadata.snsNotify(snsTopic, 'find-exports', {'instance-id': metadata.instanceId, 'find-exports': { 'cluster-mgmt-ip': address, 'subnet-id': metadata.subnetId, 'exports': foundExports}})
