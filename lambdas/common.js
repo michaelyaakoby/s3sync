@@ -646,7 +646,7 @@ exports.getBucketHourlyAverageMetricStats = function (awsAccessKey, awsSecretKey
                 },
                 {
                     "Name": "StorageType",
-                    "Value": "AllStorageTypes"
+                    "Value": metricName == 'BucketSizeBytes' ? "StandardStorage" : "AllStorageTypes"
                 }
             ]
         })
