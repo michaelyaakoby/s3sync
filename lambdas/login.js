@@ -29,15 +29,17 @@ exports.handler = common.eventHandler(
                         }
                     })
 
-                    // #2.3 return the final response
                     .then(function (requiresSetup) {
-                        return {
-                            name: name,
-                            email: email,
-                            authorization: 'Bearer ' + common.jwtIssue(uid),
-                            requiresSetup: requiresSetup
-                        }
-                    });
+                        return common.createSQSQueue().then(function (queueName) {
+                            return {
+                                name: name,
+                                email: email,
+                                authorization: 'Bearer ' + common.jwtIssue(uid),
+                                requiresSetup: requiresSetup,
+                                queueName: queueName
+                            };
+                        })
+                    })
             });
     }
 );
