@@ -655,6 +655,56 @@ exports.getBucketHourlyAverageMetricStats = function (awsAccessKey, awsSecretKey
 
 ///// END CLOUDWATCH /////
 
+///// EMR /////
+function getEMR(awsAccessKey, awsSecretKey) {
+    return new AWS.EMR({
+        accessKeyId: awsAccessKey,
+        secretAccessKey: awsSecretKey
+    });
+}
+
+exports.listEMRClusters = function (awsAccessKey, awsSecretKey) {
+    var emr = getEMR(awsAccessKey, awsSecretKey);
+
+    return promisify(
+        'List EMR Clusters - aws access key=' + awsAccessKey + ', aws secret key=' + awsSecretKey,
+        emr.listClusters.bind(emr)
+    )
+};
+
+exports.submitEMRStep = function (awsAccessKey, awsSecretKey, name, clusterId, applicationJar, mainClass, inputDir, outputDir, jobId) {
+    var emr = getEMR(awsAccessKey, awsSecretKey);
+
+    return promisify(
+        'Submit EMR Step - aws access key=' + awsAccessKey + ', aws secret key=' + awsSecretKey + ', name=' + name + ', clusterId=' + clusterId + ', applicationJar=' + applicationJar + ', mainClass=' + mainClass + ', inputDir=' + inputDir + ', outputDir=' + outputDir + ', jobId=' + jobId,
+        emr.addJobFlowSteps.bind(emr, {
+            JobFlowId: clusterId,
+            Steps: [{
+                Name: name + '-' + new Date().getTime(),
+                ActionOnFailure: 'CONTINUE',
+                HadoopJarStep: {
+                    Jar: 'command-runner.jar',
+                    Args: [
+                        'spark-submit',
+                        '--deploy-mode', 'cluster',
+                        '--executor-memory', '2g',
+                        '--class', mainClass,
+                        applicationJar,
+
+                        // script args
+                        inputDir,
+                        outputDir,
+                        jobId,
+                        exports.sns_topic
+                    ]
+                }
+            }]
+        })
+    )
+};
+
+///// END EMR /////
+
 ///// EC2 /////
 function getEC2(awsAccessKey, awsSecretKey, region) {
     return new AWS.EC2({
