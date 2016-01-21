@@ -30,15 +30,23 @@ exports.handler = common.eventHandler(
                     })
 
                     .then(function (requiresSetup) {
-                        return common.createSQSQueue().then(function (queueName) {
-                            return {
-                                name: name,
-                                email: email,
-                                authorization: 'Bearer ' + common.jwtIssue(uid),
-                                requiresSetup: requiresSetup,
-                                queueName: queueName
-                            };
-                        })
+
+                        var result = {
+                            name: name,
+                            email: email,
+                            authorization: 'Bearer ' + common.jwtIssue(uid),
+                            requiresSetup: requiresSetup
+                        };
+
+                        if (event.queueName) {
+                            result.queueName = event.queueName;
+                            return result;
+                        } else {
+                            return common.createSQSQueue().then(function (queueName) {
+                                result.queueName = queueName;
+                                return result;
+                            })
+                        }
                     })
             });
     }
