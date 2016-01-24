@@ -48,6 +48,10 @@ snsTopic = os.environ['SNS_TOPIC']
 region = re.compile('arn:aws:sns:([^:]+):.*').match(snsTopic).group(1)
 conn = boto.sns.connect_to_region(region)
 
+def sendProgressToSns(filesCopiedSoFar, bytesCopiedSoFar, completed):
+	conn.publish(topic = snsTopic, subject = 'copy-to-s3-progress', message = json.dumps({'copy-id': copyId, 'instance-id': instanceId, 'subnet-id': subnetId, 'progress': {'files-copied-so-far': filesCopiedSoFar, 'bytes-copied-so-far': bytesCopiedSoFar, 'completed': completed }}))
+
+
 def sendProgress(treeTask, completed=False):
 	# Get number of regular files copied so far
 	filesCopiedSoFar = treeTask.tree.stats['copied']
@@ -55,7 +59,7 @@ def sendProgress(treeTask, completed=False):
 	# Get bytes copied so far (from regular files)
 	bytesCopiedSoFar = treeTask.tree.stats['dataCopied']
 	
-	conn.publish(topic = snsTopic, subject = 'copy-to-s3-progress', message = json.dumps({'copy-id': copyId, 'instance-id': instanceId, 'subnet-id': subnetId, 'progress': {'files-copied-so-far': filesCopiedSoFar, 'bytes-copied-so-far': bytesCopiedSoFar, 'completed': completed }}))
+	sendProgressToSns(filesCopiedSoFar, bytesCopiedSoFar, completed)
 
 class SNSTask(sched.Task):
 	def __init__(self):
@@ -83,5 +87,7 @@ def run(argv):
 	xcp.xcp(argv, engine=engine, warn=False)
 	if snsTask.treeTask is not None: 
 		sendProgress(snsTask.treeTask, True)
+	else:
+		sendProgressToSns(0, 0, True)
 
 	sys.exit(0)
