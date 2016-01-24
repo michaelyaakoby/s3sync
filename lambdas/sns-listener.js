@@ -123,6 +123,16 @@ exports.handler = common.eventHandler(
 
                 break;
 
+            case 'reset-demo':
+                return common.scanCopyConfiguration()
+                    .then(function (data) {
+                        return data.Items;
+                    })
+                    .map(function (copyConfiguration) {
+                        return common.deleteCopyConfiguration(copyConfiguration.user_uuid.S, copyConfiguration.copy_id.S);
+                    });
+                break;
+
             default:
                 actionPromise = Promise.reject(new Error('Unexpected message!'));
                 break;

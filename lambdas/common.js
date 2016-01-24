@@ -339,6 +339,31 @@ exports.scanCopyConfigurationByCopyStatus = function (status) {
     );
 };
 
+exports.scanCopyConfiguration = function () {
+    var copy_configuration_table = getCopyConfigurationsTable();
+    return promisify(
+        'Scan table ' + copy_configuration_table.config.params.TableName,
+        copy_configuration_table.scan.bind(copy_configuration_table)
+    );
+};
+
+exports.deleteCopyConfiguration = function (userUuid, copyId) {
+    var copy_configuration_table = getCopyConfigurationsTable();
+    return promisify(
+        'Delete from table ' + copy_configuration_table.config.params.TableName + ' by user uuid=' + userUuid + ', and copy id=' + copyId,
+        copy_configuration_table.deleteItem.bind(copy_configuration_table, {
+            Key: {
+                "user_uuid": {
+                    "S": userUuid
+                },
+                "copy_id": {
+                    "S": copyId
+                }
+            }
+        })
+    );
+};
+
 exports.queryCopyConfigurationByUserUuid = function (userUuid) {
     var copy_configuration_table = getCopyConfigurationsTable();
     return promisify(
